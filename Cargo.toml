@@ -1,0 +1,4 @@
+[workspace]
+members = ["crates/*"]
+exclude = ["oodle_test2"]
+resolver = "2"

@@ -1,0 +1,11 @@
+[package]
+name = "darktide-ffi"
+version = "0.1.0"
+edition = "2021"
+description = "C ABI exports for Darktide bundle extraction"
+
+[lib]
+crate-type = ["cdylib", "staticlib"]
+
+[dependencies]
+darktide-bundle = { path = "../darktide-bundle" }
