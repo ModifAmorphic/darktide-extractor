@@ -2,7 +2,7 @@ use libloading::Library;
 use std::ffi::c_void;
 use std::os::raw::c_int;
 
-/// FFI signature for OodleLZ_Decompress (Linux .so, 14 args).
+/// OodleLZ_Decompress FFI signature (cross-platform, 14 args).
 /// Based on the working example from PLAN.md.
 #[allow(non_camel_case_types)]
 type OodleLZ_DecompressFn = unsafe extern "C" fn(

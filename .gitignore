@@ -13,6 +13,10 @@ target
 # Contains mutation testing data
 **/mutants.out*/
 
+# Oodle libraries (vendored)
+liboo2corelinux64.so.9
+oo2core_9_win64.dll
+
 # RustRover
 #  JetBrains specific template is maintained in a separate JetBrains.gitignore that can
 #  be found at https://github.com/github/gitignore/blob/main/Global/JetBrains.gitignore
@@ -21,6 +25,4 @@ target
 #.idea/
 
 # Project-specific exclusions
-Commit.gitdeps.xml
-liboo2corelinux64.so.9
 .agents/

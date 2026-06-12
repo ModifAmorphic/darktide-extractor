@@ -1,0 +1,14 @@
+[package]
+name = "darktide-extractor-cli"
+version = "0.1.0"
+edition = "2021"
+description = "CLI tool for extracting Darktide resource bundles"
+
+[[bin]]
+name = "dtex"
+path = "src/main.rs"
+
+[dependencies]
+darktide-bundle = { path = "../darktide-bundle" }
+clap = { version = "4", features = ["derive"] }
+anyhow = "1"
