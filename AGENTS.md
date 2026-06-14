@@ -11,7 +11,7 @@ This file provides instructions for AI agents working in this repository.
 ## Persistence
 
 - Agents MAY use the `.agents/` directory to persist notes, plans, and context needed across subagent handoffs or session resumes. Keep entries concise and distilled.
-- A `CONTEXT.md` file is **not** required. Do not create one as a matter of course; persist only what is genuinely useful, in whatever filename fits.
+- Periodically check on content in `.agents/` for revisions and cleanup. Prompt user before removing files in case they are used in another context.
 
 ## Git Rules
 
@@ -28,9 +28,10 @@ This file provides instructions for AI agents working in this repository.
 ## Markdown and Paths
 
 - In any committed markdown, use paths **relative to the repository root** (e.g., `crates/darktide-bundle/src/bundle.rs`, `docs/bundle-format.md`). Never embed absolute local paths (e.g., `/home/.../darktide-extractor`) — a fresh clone must not reference a specific machine.
-- No directory tree diagrams listing every file. Cover only core directories.
-- No emojis or unicode icons.
-- README and other user-facing docs describe the current state (the "now"), not the history of changes. What changed and why belongs in commit messages and release notes, not inline in docs.
+- **Markdown rules for human-facing docs:**
+  - No directory tree diagrams of every file. Cover only core directories, not deep subdirectory structures.
+  - No emojis or unicode icons.
+  - README and other user-facing docs describe the current state (the "now"). Changelog docs (CHANGELOG.md) are an exception.
 
 ## README.md
 
