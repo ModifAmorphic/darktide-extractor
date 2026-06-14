@@ -223,7 +223,8 @@ impl Bundle {
     pub fn extract_files(&mut self, oodle: &Oodle) -> io::Result<Vec<FileEntry>> {
         let decompressed = self.decompress_chunks(oodle)?;
         // Only parse up to total_size — decompressed buffer may have trailing padding
-        let data = &decompressed[..self.total_size as usize];
+        let end = (self.total_size as usize).min(decompressed.len());
+        let data = &decompressed[..end];
         Self::parse_files(data)
     }
 }

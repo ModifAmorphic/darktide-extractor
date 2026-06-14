@@ -173,11 +173,12 @@ A 24-byte prefix precedes the LuaJIT bytecode:
 | `0x08` | 4 | Constant | `0x28000000` (40) |
 | `0x0C` | 4 | Constant | `0x02000000` (2) |
 | `0x10` | 4 | Reserved | `0x00000000` |
-| `0x14` | 4 | Bytecode size + 40 | `filesize - 24 + 40` |
-| `0x18` | 4 | LuaJIT magic | `0x1b465382` (see below) |
-| `0x1C` | 1 | Version | `0x00` |
-| `0x1D` | 1 | Source name length | Length of source name string |
-| `0x1E` | variable | Source name | Null-free string, prefixed with `@`. Ends with `.lua` or `.luad` |
+ | `0x14` | 4 | Bytecode size + 40 | `filesize - 24 + 40` |
+| `0x18` | 3 | LuaJIT magic | `0x1b4653` (FS) or `0x1b4c4a` (LJ) |
+| `0x1B` | 1 | Version | `0x82` (Darktide) or `0x02` (standard) |
+| `0x1C` | 1 | Flags | Various flags |
+| `0x1D` | variable | Chunkname length (ULEB128) | ULEB128-encoded length |
+| variable | variable | Chunkname string | Null-free string, prefixed with `@`. Ends with `.lua` or `.luad` |
 
 After the source name, the standard LuaJIT bytecode begins.
 
@@ -186,29 +187,24 @@ After the source name, the standard LuaJIT bytecode begins.
 The LuaJIT bytecode within the custom header has two non-standard modifications:
 
 - **Custom magic bytes:** Standard LuaJIT uses `1b 4c 4a` ("LJ"). Darktide uses `1b 46 53` ("FS") -- a custom Fatshark signature. All 9,648 bytecode files use this custom magic.
-- **Custom version byte:** Standard LuaJIT version 2 uses byte `0x02` at offset `0x1C`. Darktide uses `0x82`. Found in 8,390 of 9,648 files.
+- **Custom version byte:** Standard LuaJIT version 2 uses byte `0x02` at offset `0x1B`. Darktide uses `0x82`. Found in 8,390 of 9,648 files.
 
 Both must be patched back to standard values for LuaJIT decompilers to accept the files.
 
 #### Source Name Recovery
 
-The source name field at offset `0x1E` contains the original file path, for example:
+The source name field contains the original file path, for example:
 ```
 @scripts/settings/terror_event/terror_event_templates/terror_events_km_enforcer.lua
 ```
+
+The chunkname length is ULEB128-encoded starting at offset `0x1D`. The actual name starts after the decoded length bytes.
 
 This is the key to recovering human-readable filenames without a dictionary. The `--lua-chunknames` flag extracts and uses these paths for output file naming.
 
 #### Clean Bytecode Extraction
 
-To extract standard LuaJIT bytecode from a Darktide-wrapped file, skip the first `30 + source_name_length` bytes:
-
-```
-bytecode_start = 0x1E + file_data[0x1D]
-clean_bytecode = file_data[bytecode_start:]
-```
-
-Then patch the magic bytes (FS to LJ) and version byte (0x82 to 0x02) within the resulting bytecode.
+To extract standard LuaJIT bytecode from a Darktide-wrapped file, skip the first `24 + chunkname_uleb128_bytes + chunkname_length` bytes. The `normalize_luajit()` function handles this automatically and returns standard LuaJIT bytecode ready for decompilation.
 
 ### Library
 

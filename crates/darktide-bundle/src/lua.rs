@@ -46,16 +46,16 @@ pub fn normalize_luajit(data: &[u8]) -> std::borrow::Cow<'_, [u8]> {
 pub fn denormalize_luajit(normalized: &[u8]) -> Vec<u8> {
     let bc_size = normalized.len() as u32;
     let mut out = Vec::with_capacity(normalized.len() + WRAPPER_LEN);
-    out.extend_from_slice(&[0u8; 4]);                       // 0x00 reserved
-    out.extend_from_slice(&bc_size.to_le_bytes());          // 0x04 bytecode_size
-    out.extend_from_slice(&40u32.to_le_bytes());            // 0x08 const 40
-    out.extend_from_slice(&2u32.to_le_bytes());             // 0x0C const 2
-    out.extend_from_slice(&[0u8; 4]);                       // 0x10 reserved
-    out.extend_from_slice(&(bc_size + 40).to_le_bytes());   // 0x14 size+40
-    out.extend_from_slice(normalized);                      // bytecode
-    let m = out.len() - normalized.len();                   // start of bytecode in out
-    out[m..m + 3].copy_from_slice(&FATSHARK_MAGIC);         // LJ -> FS
-    out[m + 3] = DARKTIDE_VERSION;                          // 0x02 -> 0x82
+    out.extend_from_slice(&[0u8; 4]); // 0x00 reserved
+    out.extend_from_slice(&bc_size.to_le_bytes()); // 0x04 bytecode_size
+    out.extend_from_slice(&40u32.to_le_bytes()); // 0x08 const 40
+    out.extend_from_slice(&2u32.to_le_bytes()); // 0x0C const 2
+    out.extend_from_slice(&[0u8; 4]); // 0x10 reserved
+    out.extend_from_slice(&(bc_size + 40).to_le_bytes()); // 0x14 size+40
+    out.extend_from_slice(normalized); // bytecode
+    let m = out.len() - normalized.len(); // start of bytecode in out
+    out[m..m + 3].copy_from_slice(&FATSHARK_MAGIC); // LJ -> FS
+    out[m + 3] = DARKTIDE_VERSION; // 0x02 -> 0x82
     out
 }
 
@@ -64,17 +64,17 @@ pub fn denormalize_luajit(normalized: &[u8]) -> Vec<u8> {
 /// Darktide wraps standard LuaJIT bytecode in a custom 24-byte header.
 /// The LuaJIT bytecode starts at offset 0x18 with:
 ///   - 4 bytes: magic (1b 46 53 82 for Darktide, or 1b 4c 4a 02 for standard)
-///   - 1 byte: version at offset 0x1C
-///   - 1 byte: source name length at offset 0x1D
-///   - N bytes: source name string at offset 0x1E
+///   - 1 byte: version at offset 0x1B
+///   - 1 byte: flags at offset 0x1C
+///   - N bytes: chunkname length (ULEB128) starting at offset 0x1D
+///   - M bytes: source name string after the decoded length bytes
 ///
 /// Source names typically start with '@' followed by the file path.
 /// Returns the path without the '@' prefix, or None if data is too short
 /// or doesn't look like valid Lua bytecode.
 pub fn extract_chunkname(data: &[u8]) -> Option<String> {
-    // Need at least 0x1E bytes to reach the source name length field
-    // Plus at least 1 byte for the source name itself
-    if data.len() < 0x1F {
+    // Need at least 0x1D+1 bytes to reach the chunkname length field
+    if data.len() < 0x1E {
         return None;
     }
 
@@ -85,12 +85,31 @@ pub fn extract_chunkname(data: &[u8]) -> Option<String> {
         return None;
     }
 
-    let name_len = data[0x1D] as usize;
+    // Decode ULEB128 chunkname length starting at offset 0x1D
+    let mut p = 0x1D;
+    let mut name_len: usize = 0;
+    let mut shift: u32 = 0;
+    loop {
+        if p >= data.len() {
+            return None;
+        }
+        let b = data[p];
+        p += 1;
+        name_len |= ((b & 0x7f) as usize) << shift;
+        if b < 0x80 {
+            break;
+        }
+        shift += 7;
+        if shift > 35 {
+            return None; // overflow guard (ULEB128 exceeds 32 bits)
+        }
+    }
+
     if name_len == 0 {
         return None;
     }
 
-    let name_start = 0x1E;
+    let name_start = p;
     let name_end = name_start + name_len;
     if name_end > data.len() {
         return None;
@@ -116,15 +135,15 @@ mod tests {
         // Total LuaJIT bytecode = 4 (magic + version) + body_after_magic_version.len()
         let bytecode_len = 4 + body_after_magic_version.len();
         let mut out = Vec::with_capacity(24 + bytecode_len);
-        out.extend_from_slice(&[0u8; 4]);                          // 0x00 reserved
-        out.extend_from_slice(&(bytecode_len as u32).to_le_bytes());// 0x04 bytecode_size
-        out.extend_from_slice(&40u32.to_le_bytes());               // 0x08 const 40
-        out.extend_from_slice(&2u32.to_le_bytes());                // 0x0C const 2
-        out.extend_from_slice(&[0u8; 4]);                          // 0x10 reserved
+        out.extend_from_slice(&[0u8; 4]); // 0x00 reserved
+        out.extend_from_slice(&(bytecode_len as u32).to_le_bytes()); // 0x04 bytecode_size
+        out.extend_from_slice(&40u32.to_le_bytes()); // 0x08 const 40
+        out.extend_from_slice(&2u32.to_le_bytes()); // 0x0C const 2
+        out.extend_from_slice(&[0u8; 4]); // 0x10 reserved
         out.extend_from_slice(&((bytecode_len as u32) + 40).to_le_bytes()); // 0x14 size+40
-        out.extend_from_slice(&FATSHARK_MAGIC);                    // 0x18 magic FS
-        out.push(DARKTIDE_VERSION);                                // 0x1B version 0x82
-        out.extend_from_slice(body_after_magic_version);           // 0x1C+ body
+        out.extend_from_slice(&FATSHARK_MAGIC); // 0x18 magic FS
+        out.push(DARKTIDE_VERSION); // 0x1B version 0x82
+        out.extend_from_slice(body_after_magic_version); // 0x1C+ body
         out
     }
 
@@ -161,13 +180,13 @@ mod tests {
     fn normalize_plaintext_source_passthrough() {
         // Mimics the plaintext-source edge case: no FS magic at 0x18
         let plaintext = vec![
-            0, 0, 0, 0,          // 0x00 reserved
-            0x4a, 0, 0, 0,      // 0x04 bytecode_size
-            0x1c, 0, 0, 0,      // 0x08 const 28
-            2, 0, 0, 0,         // 0x0C const 2
-            0, 0, 0, 0,         // 0x10 reserved
-            0, 0, 0, 0,         // 0x14 size+40
-            0, 0, 0, 0, 0, 0, 0, 0,  // 0x18-0x1F no FS magic here
+            0, 0, 0, 0, // 0x00 reserved
+            0x4a, 0, 0, 0, // 0x04 bytecode_size
+            0x1c, 0, 0, 0, // 0x08 const 28
+            2, 0, 0, 0, // 0x0C const 2
+            0, 0, 0, 0, // 0x10 reserved
+            0, 0, 0, 0, // 0x14 size+40
+            0, 0, 0, 0, 0, 0, 0, 0, // 0x18-0x1F no FS magic here
             b'l', b'o', b'c', b'a',
         ];
         let normalized = normalize_luajit(&plaintext);
@@ -266,5 +285,26 @@ mod tests {
 
         let result = extract_chunkname(&data);
         assert_eq!(result, Some("some_name_".to_string()));
+    }
+
+    #[test]
+    fn test_extract_chunkname_multibyte_uleb128_length() {
+        let name_len = 200usize;
+        let mut data = vec![0u8; 0x1D + 2 + name_len]; // 0x1D + 2 ULEB128 bytes + name
+                                                       // Custom header (24 bytes of zeros for simplicity)
+                                                       // Darktide magic at 0x18
+        data[0x18] = 0x1b;
+        data[0x19] = 0x46; // 'F'
+        data[0x1A] = 0x53; // 'S'
+        data[0x1B] = 0x82;
+        // ULEB128 length at 0x1D: 200 = 0xC8, 0x01
+        data[0x1D] = 0xC8; // low 7 bits = 0x48, continuation bit = 1
+        data[0x1E] = 0x01; // high bits = 1
+                           // Source name starts at 0x1F
+        let name_vec = vec![b'a'; name_len];
+        data[0x1F..0x1F + name_len].copy_from_slice(&name_vec);
+
+        let result = extract_chunkname(&data);
+        assert_eq!(result, Some("a".repeat(name_len)));
     }
 }
