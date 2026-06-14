@@ -305,7 +305,13 @@ pub unsafe extern "C" fn darktide_bundle_file_entry(
 }
 
 /// Copy file data for an extracted file by index into the provided buffer.
-/// Returns the number of bytes copied, or -1 on failure.
+///
+/// Copies `min(data_len, out_len)` bytes. The caller MUST allocate `out_len >= data_len`
+/// (obtained from `darktide_bundle_file_entry`) to receive the full file; otherwise the
+/// data is silently truncated and the returned byte count will be less than `data_len`.
+/// Detect truncation by comparing the return value to `data_len`.
+///
+/// Returns the number of bytes copied, or -1 on failure (null pointer or bad index).
 ///
 /// # Safety
 ///

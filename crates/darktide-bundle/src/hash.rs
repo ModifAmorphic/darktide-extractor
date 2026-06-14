@@ -26,7 +26,7 @@ pub fn murmur_hash64a(mut key: &[u8], seed: u64) -> u64 {
     }
 
     if !key.is_empty() {
-        let mut xor = u64::to_ne_bytes(0);
+        let mut xor = [0u8; 8];
         let rem = key.len();
         if rem >= 4 {
             xor[0] = key[0];

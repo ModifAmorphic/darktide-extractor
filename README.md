@@ -187,7 +187,7 @@ After the source name, the standard LuaJIT bytecode begins.
 The LuaJIT bytecode within the custom header has two non-standard modifications:
 
 - **Custom magic bytes:** Standard LuaJIT uses `1b 4c 4a` ("LJ"). Darktide uses `1b 46 53` ("FS") -- a custom Fatshark signature. All 9,648 bytecode files use this custom magic.
-- **Custom version byte:** Standard LuaJIT version 2 uses byte `0x02` at offset `0x1B`. Darktide uses `0x82`. Found in 8,390 of 9,648 files.
+- **Custom version byte:** Standard LuaJIT version 2 uses byte `0x02` at offset `0x1B`. Darktide uses `0x82`. Found in all 9,648 bytecode files.
 
 Both must be patched back to standard values for LuaJIT decompilers to accept the files.
 

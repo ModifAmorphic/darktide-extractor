@@ -252,21 +252,24 @@ fn cmd_extract(
                 if let Some(parent) = out_path.parent() {
                     fs::create_dir_all(parent)?;
                 }
-                fs::write(&out_path, &bytes)?;
+                fs::write(&out_path, &bytes)
+                    .with_context(|| format!("writing {}", out_path.display()))?;
             } else {
                 // No chunkname found or unsafe path — place in unnamed/ with hash-based name
                 let dir = output.join("unnamed");
                 fs::create_dir_all(&dir)?;
                 let filename = format!("{:016x}", file.name);
                 let out_path = dir.join(&filename);
-                fs::write(&out_path, &bytes)?;
+                fs::write(&out_path, &bytes)
+                    .with_context(|| format!("writing {}", out_path.display()))?;
                 unnamed_lua += 1;
             }
         } else if raw {
             // Raw mode: dump to <name_hash>.<ext_hash>
             let filename = format!("{:016x}.{:016x}", file.name, file.ext);
             let out_path = output.join(&filename);
-            fs::write(&out_path, &bytes)?;
+            fs::write(&out_path, &bytes)
+                .with_context(|| format!("writing {}", out_path.display()))?;
         } else if let Some(dict) = dictionary {
             // Dictionary mode: resolve name hash to path
             if let Some(resolved_path) =
@@ -277,14 +280,16 @@ fn cmd_extract(
                 if let Some(parent) = out_path.parent() {
                     fs::create_dir_all(parent)?;
                 }
-                fs::write(&out_path, &bytes)?;
+                fs::write(&out_path, &bytes)
+                    .with_context(|| format!("writing {}", out_path.display()))?;
             } else {
                 // Fall back to hash-based naming
                 let dir = output.join(ext_name);
                 fs::create_dir_all(&dir)?;
                 let filename = format!("{:016x}", file.name);
                 let out_path = dir.join(&filename);
-                fs::write(&out_path, &bytes)?;
+                fs::write(&out_path, &bytes)
+                    .with_context(|| format!("writing {}", out_path.display()))?;
                 unresolved += 1;
             }
         } else {
@@ -293,7 +298,8 @@ fn cmd_extract(
             fs::create_dir_all(&dir)?;
             let filename = format!("{:016x}", file.name);
             let out_path = dir.join(&filename);
-            fs::write(&out_path, &bytes)?;
+            fs::write(&out_path, &bytes)
+                .with_context(|| format!("writing {}", out_path.display()))?;
         }
 
         total_bytes += bytes.len() as u64;

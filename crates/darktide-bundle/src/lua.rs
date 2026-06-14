@@ -1,4 +1,5 @@
-//! Module-level constants for Darktide LuaJIT wrapper format.
+//! Darktide Lua handling: normalize custom Fatshark-wrapped bytecode to standard
+//! LuaJIT and extract source chunknames.
 
 const FATSHARK_MAGIC: [u8; 3] = [0x1B, 0x46, 0x53]; // "FS"
 const LUAJIT_MAGIC: [u8; 3] = [0x1B, 0x4C, 0x4A]; // "LJ"

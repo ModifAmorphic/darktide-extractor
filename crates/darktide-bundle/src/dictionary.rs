@@ -4,8 +4,8 @@
 /// their hashes, and builds a hash → path mapping for file name resolution.
 use std::collections::HashMap;
 use std::fs;
-use std::io;
 
+use crate::error::Result;
 use crate::hash::murmur_hash64;
 
 /// A dictionary mapping MurmurHash64A hashes to file paths.
@@ -34,7 +34,7 @@ impl Dictionary {
     ///
     /// Computes MurmurHash64A for each path at load time, hashing both the
     /// full path and the stem (without extension).
-    pub fn load(path: &str) -> io::Result<Self> {
+    pub fn load(path: &str) -> Result<Self> {
         let content = fs::read_to_string(path)?;
         let mut dict = Self::new();
         for line in content.lines() {
@@ -47,11 +47,12 @@ impl Dictionary {
     }
 
     /// Save dictionary to a text file (one unique path per line, sorted).
-    pub fn save(&self, path: &str) -> io::Result<()> {
+    pub fn save(&self, path: &str) -> Result<()> {
         let mut paths: Vec<&str> = self.hash_to_path.values().map(|s| s.as_str()).collect();
         paths.sort();
         paths.dedup();
-        fs::write(path, paths.join("\n") + "\n")
+        fs::write(path, paths.join("\n") + "\n")?;
+        Ok(())
     }
 
     /// Merge another dictionary into this one.
