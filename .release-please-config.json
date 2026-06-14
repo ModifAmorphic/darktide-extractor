@@ -3,7 +3,6 @@
   "include-component-in-tag": false,
   "prerelease": true,
   "release-as": "0.1.0",
-  "bootstrap-sha": "197c872aa2a1606ce766a1183b47d69d69fad53f",
   "packages": {
     ".": {}
   }
