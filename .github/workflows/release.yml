@@ -2,7 +2,7 @@ name: CI + Release
 
 on:
   push:
-    branches: [main]
+    branches: [main, ci/pr-release-workflows]
   # TEMPORARY: for branch testing; remove before merge
   workflow_dispatch:
 
