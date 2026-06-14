@@ -1,0 +1,38 @@
+name: _CI Build Test (temporary)
+
+on:
+  push:
+    branches: [ci/pr-release-workflows]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-release-binary:
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            asset_name: dtex-linux-x64.tar.gz
+            archive_cmd: tar czf dtex-linux-x64.tar.gz target/release/dtex
+          - os: windows-latest
+            asset_name: dtex-windows-x64.zip
+            archive_cmd: 7z a dtex-windows-x64.zip ./target/release/dtex.exe
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+      - name: Build release binary
+        run: cargo build --release --bin dtex
+      - name: Package binary
+        run: ${{ matrix.archive_cmd }}
+      - name: Upload binary to release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload v0.0.0-ci-test2 ${{ matrix.asset_name }} --clobber
