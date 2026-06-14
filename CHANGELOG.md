@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.2](https://github.com/ModifAmorphic/darktide-extractor/compare/v0.1.1...v0.1.2) (2026-06-14)
+
+
+### Bug Fixes
+
+* **ci:** single-line the release upload command ([b1e6aa0](https://github.com/ModifAmorphic/darktide-extractor/commit/b1e6aa06e0fd103a833a885d455e2cc9111ac9e3))
+* **ci:** single-line the release upload command ([#14](https://github.com/ModifAmorphic/darktide-extractor/issues/14)) ([b1e6aa0](https://github.com/ModifAmorphic/darktide-extractor/commit/b1e6aa06e0fd103a833a885d455e2cc9111ac9e3))
+
 ## [0.1.1](https://github.com/ModifAmorphic/darktide-extractor/compare/v0.1.0...v0.1.1) (2026-06-14)
 
 
