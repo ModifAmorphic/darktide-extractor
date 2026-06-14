@@ -5,8 +5,8 @@
   "packages": {
     "crates/darktide-extractor-cli": {
       "extra-files": [
-        "crates/darktide-bundle/Cargo.toml",
-        "crates/darktide-ffi/Cargo.toml"
+        "../darktide-bundle/Cargo.toml",
+        "../darktide-ffi/Cargo.toml"
       ]
     }
   }
