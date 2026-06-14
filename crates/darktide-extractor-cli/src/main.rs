@@ -2,11 +2,27 @@ use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
 use std::collections::HashSet;
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 
 use darktide_bundle::hash::{lookup_extension, murmur_hash64};
 use darktide_bundle::lua::extract_chunkname;
-use darktide_bundle::{scan_strings, Bundle, Dictionary, Oodle};
+use darktide_bundle::{normalize_luajit, scan_strings, Bundle, Dictionary, Oodle};
+
+/// Join `output` with an untrusted path, rejecting components that would escape
+/// the output directory (absolute roots, `..`, Windows drive prefixes).
+/// Returns `None` if the path is unsafe.
+fn safe_join(output: &Path, untrusted: &str) -> Option<PathBuf> {
+    let p = Path::new(untrusted);
+    if p.components().any(|c| {
+        matches!(
+            c,
+            Component::RootDir | Component::ParentDir | Component::Prefix(_)
+        )
+    }) {
+        return None;
+    }
+    Some(output.join(p))
+}
 
 #[cfg(target_os = "windows")]
 const DEFAULT_OODLE_LIB: &str = "oo2core_9_win64.dll";
@@ -122,7 +138,15 @@ fn main() -> Result<()> {
             } else {
                 None
             };
-            cmd_extract(&input, &output, extension.as_deref(), raw, lua_chunknames, &oodle, dict.as_ref())?;
+            cmd_extract(
+                &input,
+                &output,
+                extension.as_deref(),
+                raw,
+                lua_chunknames,
+                &oodle,
+                dict.as_ref(),
+            )?;
         }
         Commands::DumpHashes { input } => {
             cmd_dump_hashes(&input)?;
@@ -167,9 +191,7 @@ fn cmd_list(input: &Path, extension_filter: Option<&str>) -> Result<()> {
             }
         }
 
-        let ext_name = lookup_extension(entry.ext)
-            .unwrap_or("unknown")
-            .to_string();
+        let ext_name = lookup_extension(entry.ext).unwrap_or("unknown").to_string();
 
         println!(
             "{:016x}\t{:016x}\t{}\tmode={}",
@@ -213,44 +235,61 @@ fn cmd_extract(
 
         let ext_name = lookup_extension(file.ext).unwrap_or("unknown");
 
+        // Lua files are unconditionally normalized to standard LuaJIT bytecode
+        // (strips the 24-byte Fatshark prefix, restores `LJ` magic and `0x02` version).
+        let bytes = if ext_name == "lua" {
+            normalize_luajit(&file.data)
+        } else {
+            std::borrow::Cow::Borrowed(file.data.as_slice())
+        };
+
         // Try lua chunkname naming when flag is set and file is lua
         if lua_chunknames && ext_name == "lua" {
-            if let Some(chunkname) = extract_chunkname(&file.data) {
-                let out_path = output.join(&chunkname);
+            if let Some(chunkname) =
+                extract_chunkname(&file.data).and_then(|cn| safe_join(output, &cn))
+            {
+                let out_path = chunkname;
                 if let Some(parent) = out_path.parent() {
                     fs::create_dir_all(parent)?;
                 }
-                fs::write(&out_path, &file.data)?;
+                fs::write(&out_path, &bytes)
+                    .with_context(|| format!("writing {}", out_path.display()))?;
             } else {
-                // No chunkname found — place in unnamed/ with hash-based name
+                // No chunkname found or unsafe path — place in unnamed/ with hash-based name
                 let dir = output.join("unnamed");
                 fs::create_dir_all(&dir)?;
                 let filename = format!("{:016x}", file.name);
                 let out_path = dir.join(&filename);
-                fs::write(&out_path, &file.data)?;
+                fs::write(&out_path, &bytes)
+                    .with_context(|| format!("writing {}", out_path.display()))?;
                 unnamed_lua += 1;
             }
         } else if raw {
             // Raw mode: dump to <name_hash>.<ext_hash>
             let filename = format!("{:016x}.{:016x}", file.name, file.ext);
             let out_path = output.join(&filename);
-            fs::write(&out_path, &file.data)?;
+            fs::write(&out_path, &bytes)
+                .with_context(|| format!("writing {}", out_path.display()))?;
         } else if let Some(dict) = dictionary {
             // Dictionary mode: resolve name hash to path
-            if let Some(resolved_path) = dict.resolve(file.name) {
+            if let Some(resolved_path) =
+                dict.resolve(file.name).and_then(|rp| safe_join(output, rp))
+            {
                 // Use the resolved path directly, preserving directory structure
-                let out_path = output.join(resolved_path);
+                let out_path = resolved_path;
                 if let Some(parent) = out_path.parent() {
                     fs::create_dir_all(parent)?;
                 }
-                fs::write(&out_path, &file.data)?;
+                fs::write(&out_path, &bytes)
+                    .with_context(|| format!("writing {}", out_path.display()))?;
             } else {
                 // Fall back to hash-based naming
                 let dir = output.join(ext_name);
                 fs::create_dir_all(&dir)?;
                 let filename = format!("{:016x}", file.name);
                 let out_path = dir.join(&filename);
-                fs::write(&out_path, &file.data)?;
+                fs::write(&out_path, &bytes)
+                    .with_context(|| format!("writing {}", out_path.display()))?;
                 unresolved += 1;
             }
         } else {
@@ -259,10 +298,11 @@ fn cmd_extract(
             fs::create_dir_all(&dir)?;
             let filename = format!("{:016x}", file.name);
             let out_path = dir.join(&filename);
-            fs::write(&out_path, &file.data)?;
+            fs::write(&out_path, &bytes)
+                .with_context(|| format!("writing {}", out_path.display()))?;
         }
 
-        total_bytes += file.data.len() as u64;
+        total_bytes += bytes.len() as u64;
         count += 1;
     }
 
@@ -301,9 +341,7 @@ fn cmd_dump_hashes(input: &Path) -> Result<()> {
     println!("ext_hash\t\t\tname_hash\t\t\text\tmode");
 
     for entry in &index {
-        let ext_name = lookup_extension(entry.ext)
-            .unwrap_or("unknown")
-            .to_string();
+        let ext_name = lookup_extension(entry.ext).unwrap_or("unknown").to_string();
         println!(
             "{:016x}\t{:016x}\t{}\t{}",
             entry.ext, entry.name, ext_name, entry.mode
@@ -315,12 +353,7 @@ fn cmd_dump_hashes(input: &Path) -> Result<()> {
 }
 
 /// Scan bundle content for path strings and build a dictionary.
-fn cmd_scan(
-    inputs: &[PathBuf],
-    output: &Path,
-    merge: Option<&Path>,
-    oodle: &Oodle,
-) -> Result<()> {
+fn cmd_scan(inputs: &[PathBuf], output: &Path, merge: Option<&Path>, oodle: &Oodle) -> Result<()> {
     let mut dictionary = if let Some(merge_path) = merge {
         let merge_str = merge_path.to_str().context("Invalid merge path")?;
         eprintln!("Loading existing dictionary from {}", merge_str);
@@ -415,10 +448,7 @@ fn cmd_coverage(dictionary_path: &Path, inputs: &[PathBuf]) -> Result<()> {
 
     for (ext_hash, count) in &ext_entries {
         let ext_name = lookup_extension(**ext_hash).unwrap_or("unknown");
-        eprintln!(
-            "  {:016x} ({:15}): {} files",
-            ext_hash, ext_name, count
-        );
+        eprintln!("  {:016x} ({:15}): {} files", ext_hash, ext_name, count);
     }
 
     // List uncovered hashes
@@ -435,4 +465,49 @@ fn cmd_coverage(dictionary_path: &Path, inputs: &[PathBuf]) -> Result<()> {
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+
+    #[test]
+    fn safe_join_rejects_absolute_unix() {
+        let output = Path::new("output");
+        assert_eq!(safe_join(output, "/etc/evil"), None);
+    }
+
+    #[test]
+    fn safe_join_rejects_absolute_windows() {
+        let output = Path::new("output");
+        // On Unix, a string like "C:\Windows\evil" is parsed as a single Normal component
+        // containing backslashes. This is platform-dependent behavior, so we only test
+        // that it's treated as a relative path and joined.
+        // On Windows, Component::Prefix would catch this.
+        let result = safe_join(output, "C:\\Windows\\evil");
+        #[cfg(windows)]
+        assert_eq!(
+            result, None,
+            "Windows should reject absolute paths with prefixes"
+        );
+        #[cfg(unix)]
+        assert!(result.is_some(), "Unix treats this as a relative path");
+    }
+
+    #[test]
+    fn safe_join_rejects_parent_dir() {
+        let output = Path::new("output");
+        assert_eq!(safe_join(output, "../escape"), None);
+        assert_eq!(safe_join(output, "a/../../b"), None);
+    }
+
+    #[test]
+    fn safe_join_accepts_normal_relative() {
+        let output = Path::new("output");
+        assert_eq!(
+            safe_join(output, "scripts/foo/bar.lua"),
+            Some(PathBuf::from("output/scripts/foo/bar.lua"))
+        );
+    }
 }

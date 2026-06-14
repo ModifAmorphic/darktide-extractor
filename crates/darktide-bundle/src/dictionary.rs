@@ -2,11 +2,10 @@
 ///
 /// Scans decompressed bundle content for plaintext path strings, computes
 /// their hashes, and builds a hash → path mapping for file name resolution.
-
 use std::collections::HashMap;
 use std::fs;
-use std::io;
 
+use crate::error::Result;
 use crate::hash::murmur_hash64;
 
 /// A dictionary mapping MurmurHash64A hashes to file paths.
@@ -15,6 +14,12 @@ use crate::hash::murmur_hash64;
 /// string. At extraction time, name hashes are looked up to resolve file names.
 pub struct Dictionary {
     hash_to_path: HashMap<u64, String>,
+}
+
+impl Default for Dictionary {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl Dictionary {
@@ -29,7 +34,7 @@ impl Dictionary {
     ///
     /// Computes MurmurHash64A for each path at load time, hashing both the
     /// full path and the stem (without extension).
-    pub fn load(path: &str) -> io::Result<Self> {
+    pub fn load(path: &str) -> Result<Self> {
         let content = fs::read_to_string(path)?;
         let mut dict = Self::new();
         for line in content.lines() {
@@ -42,11 +47,12 @@ impl Dictionary {
     }
 
     /// Save dictionary to a text file (one unique path per line, sorted).
-    pub fn save(&self, path: &str) -> io::Result<()> {
+    pub fn save(&self, path: &str) -> Result<()> {
         let mut paths: Vec<&str> = self.hash_to_path.values().map(|s| s.as_str()).collect();
         paths.sort();
         paths.dedup();
-        fs::write(path, paths.join("\n") + "\n")
+        fs::write(path, paths.join("\n") + "\n")?;
+        Ok(())
     }
 
     /// Merge another dictionary into this one.
@@ -54,7 +60,9 @@ impl Dictionary {
     /// Existing entries are preserved (first-write-wins for each hash).
     pub fn merge(&mut self, other: &Self) {
         for (hash, path) in &other.hash_to_path {
-            self.hash_to_path.entry(*hash).or_insert_with(|| path.clone());
+            self.hash_to_path
+                .entry(*hash)
+                .or_insert_with(|| path.clone());
         }
     }
 
@@ -65,7 +73,9 @@ impl Dictionary {
     pub fn add_path(&mut self, path: &str) {
         // Hash the full path
         let hash = murmur_hash64(path.as_bytes());
-        self.hash_to_path.entry(hash).or_insert_with(|| path.to_string());
+        self.hash_to_path
+            .entry(hash)
+            .or_insert_with(|| path.to_string());
 
         // Hash the stem (path without last extension, e.g. "foo.stream" → "foo")
         if let Some(dot_pos) = path.rfind('.') {
@@ -140,7 +150,7 @@ pub fn scan_strings(data: &[u8]) -> Vec<String> {
         }
 
         let len = i - start;
-        if len < 5 || len > 1024 {
+        if !(5..=1024).contains(&len) {
             continue;
         }
 
@@ -195,12 +205,7 @@ fn is_path_like(s: &str) -> bool {
 /// Check if a string contains only valid path characters.
 fn is_valid_path_string(s: &str) -> bool {
     s.chars().all(|c| {
-        c.is_ascii_alphanumeric()
-            || c == '/'
-            || c == '\\'
-            || c == '_'
-            || c == '-'
-            || c == '.'
+        c.is_ascii_alphanumeric() || c == '/' || c == '\\' || c == '_' || c == '-' || c == '.'
     })
 }
 

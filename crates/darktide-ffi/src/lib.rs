@@ -18,10 +18,12 @@
 //! - `darktide_murmur_hash64(data, len)` — Compute MurmurHash64A
 //! - `darktide_lookup_extension(hash)` — Lookup extension name by hash
 
-use darktide_bundle::hash::{lookup_extension, murmur_hash64};
+use darktide_bundle::hash::compute_known_extensions;
 use darktide_bundle::{Bundle, FileEntry, IndexEntry, Oodle};
-use std::ffi::{c_char, c_int, c_uint, CStr};
+use std::collections::HashMap;
+use std::ffi::{c_char, c_int, c_uint, CStr, CString};
 use std::ptr;
+use std::sync::OnceLock;
 
 // ---------------------------------------------------------------------------
 // Opaque handle types
@@ -81,8 +83,12 @@ pub struct DarktideFileEntry {
 
 /// Load the Oodle shared library.
 /// Returns a handle on success, null on failure.
+///
+/// # Safety
+///
+/// - `path` must be a valid pointer to a NUL-terminated C string.
 #[no_mangle]
-pub extern "C" fn darktide_oodle_load(path: *const c_char) -> *mut DarktideOodle {
+pub unsafe extern "C" fn darktide_oodle_load(path: *const c_char) -> *mut DarktideOodle {
     if path.is_null() {
         return ptr::null_mut();
     }
@@ -97,8 +103,13 @@ pub extern "C" fn darktide_oodle_load(path: *const c_char) -> *mut DarktideOodle
 }
 
 /// Free an Oodle handle.
+///
+/// # Safety
+///
+/// - `oodle` must be a pointer returned by `darktide_oodle_load`, or null.
+/// - Must be called at most once per handle (double-free is UB).
 #[no_mangle]
-pub extern "C" fn darktide_oodle_free(oodle: *mut DarktideOodle) {
+pub unsafe extern "C" fn darktide_oodle_free(oodle: *mut DarktideOodle) {
     if !oodle.is_null() {
         unsafe { drop(Box::from_raw(oodle)) };
     }
@@ -110,8 +121,12 @@ pub extern "C" fn darktide_oodle_free(oodle: *mut DarktideOodle) {
 
 /// Open a bundle file.
 /// Returns a handle on success, null on failure.
+///
+/// # Safety
+///
+/// - `path` must be a valid pointer to a NUL-terminated C string.
 #[no_mangle]
-pub extern "C" fn darktide_bundle_open(path: *const c_char) -> *mut DarktideBundle {
+pub unsafe extern "C" fn darktide_bundle_open(path: *const c_char) -> *mut DarktideBundle {
     if path.is_null() {
         return ptr::null_mut();
     }
@@ -126,8 +141,13 @@ pub extern "C" fn darktide_bundle_open(path: *const c_char) -> *mut DarktideBund
 }
 
 /// Free a bundle handle.
+///
+/// # Safety
+///
+/// - `bundle` must be a pointer returned by `darktide_bundle_open`, or null.
+/// - Must be called at most once per handle (double-free is UB).
 #[no_mangle]
-pub extern "C" fn darktide_bundle_free(bundle: *mut DarktideBundle) {
+pub unsafe extern "C" fn darktide_bundle_free(bundle: *mut DarktideBundle) {
     if !bundle.is_null() {
         unsafe { drop(Box::from_raw(bundle)) };
     }
@@ -139,8 +159,15 @@ pub extern "C" fn darktide_bundle_free(bundle: *mut DarktideBundle) {
 
 /// Read the file index from a bundle.
 /// Returns a handle on success, null on failure.
+///
+/// # Safety
+///
+/// - `bundle` must be a pointer returned by `darktide_bundle_open`, or null.
+/// - The caller must guarantee exclusive access (no concurrent calls on the same handle).
 #[no_mangle]
-pub extern "C" fn darktide_bundle_read_index(bundle: *mut DarktideBundle) -> *mut DarktideIndex {
+pub unsafe extern "C" fn darktide_bundle_read_index(
+    bundle: *mut DarktideBundle,
+) -> *mut DarktideIndex {
     if bundle.is_null() {
         return ptr::null_mut();
     }
@@ -152,8 +179,12 @@ pub extern "C" fn darktide_bundle_read_index(bundle: *mut DarktideBundle) -> *mu
 }
 
 /// Get the number of entries in an index.
+///
+/// # Safety
+///
+/// - `index` must be a pointer returned by `darktide_bundle_read_index`, or null.
 #[no_mangle]
-pub extern "C" fn darktide_bundle_index_count(index: *const DarktideIndex) -> c_uint {
+pub unsafe extern "C" fn darktide_bundle_index_count(index: *const DarktideIndex) -> c_uint {
     if index.is_null() {
         return 0;
     }
@@ -162,8 +193,13 @@ pub extern "C" fn darktide_bundle_index_count(index: *const DarktideIndex) -> c_
 
 /// Get an index entry by index.
 /// Returns 0 on success, -1 on failure.
+///
+/// # Safety
+///
+/// - `index` must be a pointer returned by `darktide_bundle_read_index`, or null.
+/// - `out` must be a valid pointer to a `DarktideIndexEntry`.
 #[no_mangle]
-pub extern "C" fn darktide_bundle_index_entry(
+pub unsafe extern "C" fn darktide_bundle_index_entry(
     index: *const DarktideIndex,
     idx: c_uint,
     out: *mut DarktideIndexEntry,
@@ -185,8 +221,13 @@ pub extern "C" fn darktide_bundle_index_entry(
 }
 
 /// Free an index handle.
+///
+/// # Safety
+///
+/// - `index` must be a pointer returned by `darktide_bundle_read_index`, or null.
+/// - Must be called at most once per handle (double-free is UB).
 #[no_mangle]
-pub extern "C" fn darktide_bundle_index_free(index: *mut DarktideIndex) {
+pub unsafe extern "C" fn darktide_bundle_index_free(index: *mut DarktideIndex) {
     if !index.is_null() {
         unsafe { drop(Box::from_raw(index)) };
     }
@@ -198,8 +239,14 @@ pub extern "C" fn darktide_bundle_index_free(index: *mut DarktideIndex) {
 
 /// Extract all files from a bundle using the given Oodle handle.
 /// Returns a handle on success, null on failure.
+///
+/// # Safety
+///
+/// - `bundle` must be a pointer returned by `darktide_bundle_open`, or null.
+/// - `oodle` must be a pointer returned by `darktide_oodle_load`, or null.
+/// - The caller must guarantee exclusive access to both handles (no concurrent calls).
 #[no_mangle]
-pub extern "C" fn darktide_bundle_extract_all(
+pub unsafe extern "C" fn darktide_bundle_extract_all(
     bundle: *mut DarktideBundle,
     oodle: *mut DarktideOodle,
 ) -> *mut DarktideFiles {
@@ -215,8 +262,12 @@ pub extern "C" fn darktide_bundle_extract_all(
 }
 
 /// Get the number of extracted files.
+///
+/// # Safety
+///
+/// - `files` must be a pointer returned by `darktide_bundle_extract_all`, or null.
 #[no_mangle]
-pub extern "C" fn darktide_bundle_files_count(files: *const DarktideFiles) -> c_uint {
+pub unsafe extern "C" fn darktide_bundle_files_count(files: *const DarktideFiles) -> c_uint {
     if files.is_null() {
         return 0;
     }
@@ -225,8 +276,13 @@ pub extern "C" fn darktide_bundle_files_count(files: *const DarktideFiles) -> c_
 
 /// Get metadata for an extracted file by index.
 /// Returns 0 on success, -1 on failure.
+///
+/// # Safety
+///
+/// - `files` must be a pointer returned by `darktide_bundle_extract_all`, or null.
+/// - `out` must be a valid pointer to a `DarktideFileEntry`.
 #[no_mangle]
-pub extern "C" fn darktide_bundle_file_entry(
+pub unsafe extern "C" fn darktide_bundle_file_entry(
     files: *const DarktideFiles,
     idx: c_uint,
     out: *mut DarktideFileEntry,
@@ -249,9 +305,20 @@ pub extern "C" fn darktide_bundle_file_entry(
 }
 
 /// Copy file data for an extracted file by index into the provided buffer.
-/// Returns the number of bytes copied, or -1 on failure.
+///
+/// Copies `min(data_len, out_len)` bytes. The caller MUST allocate `out_len >= data_len`
+/// (obtained from `darktide_bundle_file_entry`) to receive the full file; otherwise the
+/// data is silently truncated and the returned byte count will be less than `data_len`.
+/// Detect truncation by comparing the return value to `data_len`.
+///
+/// Returns the number of bytes copied, or -1 on failure (null pointer or bad index).
+///
+/// # Safety
+///
+/// - `files` must be a pointer returned by `darktide_bundle_extract_all`, or null.
+/// - `out_buf` must be a valid pointer to a buffer of at least `out_len` bytes.
 #[no_mangle]
-pub extern "C" fn darktide_bundle_file_data(
+pub unsafe extern "C" fn darktide_bundle_file_data(
     files: *const DarktideFiles,
     idx: c_uint,
     out_buf: *mut u8,
@@ -272,8 +339,13 @@ pub extern "C" fn darktide_bundle_file_data(
 }
 
 /// Free extracted files handle.
+///
+/// # Safety
+///
+/// - `files` must be a pointer returned by `darktide_bundle_extract_all`, or null.
+/// - Must be called at most once per handle (double-free is UB).
 #[no_mangle]
-pub extern "C" fn darktide_bundle_files_free(files: *mut DarktideFiles) {
+pub unsafe extern "C" fn darktide_bundle_files_free(files: *mut DarktideFiles) {
     if !files.is_null() {
         unsafe { drop(Box::from_raw(files)) };
     }
@@ -283,23 +355,67 @@ pub extern "C" fn darktide_bundle_files_free(files: *mut DarktideFiles) {
 // Hash utilities
 // ---------------------------------------------------------------------------
 
+static EXTENSION_CSTRINGS: OnceLock<HashMap<u64, CString>> = OnceLock::new();
+
+fn extension_cstrings() -> &'static HashMap<u64, CString> {
+    EXTENSION_CSTRINGS.get_or_init(|| {
+        compute_known_extensions()
+            .into_iter()
+            .map(|(name, hash)| {
+                // SAFE: all known extensions are ASCII with no interior NUL.
+                let cstr = CString::new(name).expect("extension name has no NUL");
+                (hash, cstr)
+            })
+            .collect()
+    })
+}
+
 /// Compute MurmurHash64A of the given data.
+///
+/// # Safety
+///
+/// - `data` must be a valid pointer to a buffer of `len` bytes, or null.
+/// - If `data` is null, the function returns 0.
 #[no_mangle]
-pub extern "C" fn darktide_murmur_hash64(data: *const u8, len: c_uint) -> u64 {
+pub unsafe extern "C" fn darktide_murmur_hash64(data: *const u8, len: c_uint) -> u64 {
     if data.is_null() || len == 0 {
         return 0;
     }
     let slice = unsafe { std::slice::from_raw_parts(data, len as usize) };
-    murmur_hash64(slice)
+    darktide_bundle::hash::murmur_hash64(slice)
 }
 
 /// Lookup extension name by hash.
-/// Returns a pointer to a static C string, or null if unknown.
-/// The returned pointer is valid for the lifetime of the program.
+/// Returns a pointer to a NUL-terminated C string valid for the lifetime of the program,
+/// or null if unknown.
 #[no_mangle]
 pub extern "C" fn darktide_lookup_extension(hash: u64) -> *const c_char {
-    match lookup_extension(hash) {
-        Some(name) => name.as_ptr() as *const c_char,
-        None => ptr::null(),
+    extension_cstrings()
+        .get(&hash)
+        .map(|s| s.as_ptr())
+        .unwrap_or(ptr::null())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_darktide_lookup_extension_nul_terminated() {
+        let lua_hash = darktide_bundle::hash::murmur_hash64(b"lua");
+        let ptr = darktide_lookup_extension(lua_hash);
+        assert!(!ptr.is_null());
+
+        // Verify the byte after the string is 0x00
+        let cstr = unsafe { CStr::from_ptr(ptr) };
+        let bytes = cstr.to_bytes();
+        assert_eq!(bytes, b"lua");
+    }
+
+    #[test]
+    fn test_darktide_lookup_extension_unknown() {
+        let unknown_hash = 0xdeadbeef_deadbeef;
+        let ptr = darktide_lookup_extension(unknown_hash);
+        assert!(ptr.is_null());
     }
 }

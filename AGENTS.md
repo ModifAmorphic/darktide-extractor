@@ -4,27 +4,40 @@ This file provides instructions for AI agents working in this repository.
 
 ## Security Rules
 
-- **Always ask for confirmation** before performing write operations (file creation, edits) on paths **outside** this workspace (`/home/justin/repos/ModifAmorphic/darktide-extractor`).
-- **Always ask for confirmation** before executing shell commands that affect paths **outside** this workspace.
-- Writes and commands targeting paths **inside** this workspace are fine without extra confirmation.
+- **Always ask for confirmation** before performing write operations (file creation, edits) on paths **outside** this repository.
+- **Always ask for confirmation** before executing shell commands that affect paths **outside** this repository.
+- Writes and commands targeting paths **inside** this repository are fine without extra confirmation.
 
-## Context Persistence
+## Persistence
 
-- Create a `CONTEXT.md` file in `.agents/` (create the directory if needed) at the start of each task.
-- Continually update `CONTEXT.md` to reflect the current state and progress of each step.
-- Keep it **concise and distilled** — include only important details that need to persist (goals, decisions, key findings, current status, next steps). Avoid verbose logs or raw output.
-- Target **concise and focused** — avoid bloating the context window when resuming.
-- The goal: a new session can read `CONTEXT.md` and continue where we left off.
+- Agents MAY use the `.agents/` directory to persist notes, plans, and context needed across subagent handoffs or session resumes. Keep entries concise and distilled.
+- A `CONTEXT.md` file is **not** required. Do not create one as a matter of course; persist only what is genuinely useful, in whatever filename fits.
 
 ## Git Rules
 
-- **Always ask for confirmation** before performing git write operations: commits, pushes, resets, force pushes, amends, etc.
+- **Never commit directly to `main`.** Always create a feature branch for any change and open a PR.
+- **Always ask for confirmation** before performing git write operations: commits, pushes, resets, force pushes, amends, branch creation/deletion, etc. (Branch creation as the first step of a change is expected and does not need a separate confirmation beyond the user's request to do the work.)
+- **PRs are squash-merged.** The branch's individual commit history is collapsed into one commit on `main`, so commit granularity on a branch matters less than a clean, well-described PR.
+- **PR descriptions follow Conventional Commits format.** When asked to create a PR, write the description as a Conventional Commits-style summary (type + scope as appropriate) with the changes summarized as one bullet per logical line item.
 - **Commit Flow:**
   1. Stage changes and draft a commit message following [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) syntax.
   2. Present the commit message to the user for approval.
-  3. On approval, commit but **do not push**.
-  4. Request separate approval before pushing.
+  3. On approval, commit. Push only with separate approval.
 - **Paging:** Use `--no-pager` with git commands that may page output (e.g., `git log`, `git diff`, `git show`) to avoid blocking on vim/less prompts.
+
+## Markdown and Paths
+
+- In any committed markdown, use paths **relative to the repository root** (e.g., `crates/darktide-bundle/src/bundle.rs`, `docs/bundle-format.md`). Never embed absolute local paths (e.g., `/home/.../darktide-extractor`) — a fresh clone must not reference a specific machine.
+- No directory tree diagrams listing every file. Cover only core directories.
+- No emojis or unicode icons.
+- README and other user-facing docs describe the current state (the "now"), not the history of changes. What changed and why belongs in commit messages and release notes, not inline in docs.
+
+## README.md
+
+- Maintain a `README.md` summarizing the repository's purpose and how to use it.
+- Keep an **Installation** section up to date, covering both Linux and Windows, including how to make the `dtex` CLI available on the user's `PATH`.
+- Cover **what the CLI (and library) can extract and how**, including a **Limitations** subsection. Update these as limitations are added, removed, or discovered in subsequent changes.
+- Move deep technical specifications into `docs/` and link to them from the README rather than inlining long format/protocol details.
 
 ## Oodle Library
 
@@ -58,12 +71,3 @@ Download URL: `{BaseUrl}/{Pack.RemotePath}/{Pack.Hash}` — the response is gzip
   curl -sL "https://cdn.unrealengine.com/dependencies/UnrealEngine-42566482/4f6c5fd233cb85f91497bd8c722fd7a89f1c657a" \
     | gunzip | dd bs=1 skip=1399275 count=688096 of=liboo2corelinux64.so.9
   ```
-
-## README.md
-
-- Maintain a `README.md` that summarizes the purpose of this repository.
-- Include instructions for using CLI arguments (assume downloadable binaries via CI/Release workflows).
-- Update the README whenever relevant changes are made (new features, CLI argument changes, etc.).
-- **Markdown rules for human-facing docs:**
-  - No directory tree diagrams of every file. Cover only core directories, not deep subdirectory structures.
-  - No emojis or unicode icons.
