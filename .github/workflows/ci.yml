@@ -1,0 +1,53 @@
+name: CI
+
+# Build/test on push, and stage a release-please PR.
+# Skips pushes that only touch release-please's version/changelog files
+# (e.g. a release-please release PR merge) to avoid a redundant rebuild.
+on:
+  push:
+    branches: [main, release-please-refactor]
+    paths-ignore:
+      - 'CHANGELOG.md'
+      - '.release-please-manifest.json'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'crates/**/Cargo.toml'
+      - 'crates/**/CHANGELOG.md'
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-test:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build workspace
+        run: cargo build --workspace --all-targets --release
+
+      - name: Run tests
+        run: cargo test --workspace --release
+
+  open-release-pr:
+    needs: build-test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: googleapis/release-please-action@v5
+        with:
+          config-file: .release-please-config.json
+          target-branch: release-please-refactor
+          skip-github-release: true

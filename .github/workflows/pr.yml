@@ -2,7 +2,7 @@ name: PR Quality Gate
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, release-please-refactor]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -10,6 +10,7 @@ concurrency:
 
 jobs:
   lint:
+    if: ${{ !startsWith(github.head_ref, 'release-please--branches--') }}
     runs-on: ubuntu-latest
 
     steps:
@@ -28,6 +29,7 @@ jobs:
         run: cargo clippy --workspace --all-targets -- -D warnings
 
   test:
+    if: ${{ !startsWith(github.head_ref, 'release-please--branches--') }}
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
