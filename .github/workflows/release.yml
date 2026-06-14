@@ -6,7 +6,7 @@ name: Release
 # gates every merge, so main is trusted.
 on:
   push:
-    branches: [main, release-please-refactor]
+    branches: [main]
 
 permissions:
   contents: write
@@ -27,7 +27,6 @@ jobs:
         id: release
         with:
           config-file: .release-please-config.json
-          target-branch: release-please-refactor
 
   build-release-binary:
     needs: release-please

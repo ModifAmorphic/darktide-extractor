@@ -6,7 +6,7 @@ name: PR Quality Gate
 # GITHUB_TOKEN-created PRs otherwise sit in.
 on:
   pull_request:
-    branches: [main, release-please-refactor]
+    branches: [main]
     paths-ignore:
       - 'CHANGELOG.md'
       - '.release-please-manifest.json'
