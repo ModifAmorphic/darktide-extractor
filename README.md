@@ -145,24 +145,22 @@ dtex coverage -d dictionary.txt -i <bundle_file> [-i <bundle_file> ...]
 
 ## Lua extraction pipeline
 
-Lua is the primary asset type whose original path is fully recoverable. The path is embedded
-in the bytecode debug info (chunkname), so `--lua-chunknames` reconstructs the in-game
-directory structure (`scripts/`, `dialogues/`, `content/`, `core/`).
+Lua source can be fully recovered in two stages: `dtex` extracts Darktide's
+custom-wrapped LuaJIT bytecode into standard LuaJIT bytecode, then a LuaJIT
+decompiler turns it back into readable Lua.
 
 ```sh
-# 1. Extract Lua to standard LuaJIT bytecode, named by source path
-dtex extract -i <bundle_dir> -o <output_dir> --lua-chunknames lua
+# 1. Extract Lua into standard LuaJIT bytecode
+dtex extract -i <bundle_dir> -o <bytecode_dir> --lua-chunknames lua
 
-# 2. Decompile with a LuaJIT 2.x decompiler, e.g. luajit-decompiler-v2
-luajit-decompiler-v2 <output_dir> -o <final_output> --organized -s -f
+# 2. Decompile the bytecode into Lua source
+luadejit <bytecode_dir> -o <source_dir>
 ```
 
-At scale across all Darktide bundles: 14,678 bundles scanned, 422 contain Lua, 9,649 Lua
-files extracted (9,648 bytecode), 9,646 decompile successfully (99.97%). Output breaks down
-as `scripts/` (4,801), `dialogues/` (3,437), `content/` (1,402), `core/` (6).
-
-See [`docs/luajit-bytecode-format.md`](docs/luajit-bytecode-format.md) for the wrapper format
-and normalization details.
+`luadejit` is a LuaJIT 2.x decompiler (`luadejit --help` lists options such as
+`--strip-dir-prefix` to trim a common leading path from chunkname-derived
+filenames). See [`docs/luajit-bytecode-format.md`](docs/luajit-bytecode-format.md)
+for the wrapper format and normalization details.
 
 ## Dictionary workflow
 
