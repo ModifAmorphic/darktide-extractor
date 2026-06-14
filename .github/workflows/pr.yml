@@ -1,8 +1,19 @@
 name: PR Quality Gate
 
+# Skip release-please's bot-authored release PRs entirely: they only touch
+# version/changelog files, so paths-ignore prevents the workflow from
+# triggering at all — which avoids the approval-required run that
+# GITHUB_TOKEN-created PRs otherwise sit in.
 on:
   pull_request:
     branches: [main]
+    paths-ignore:
+      - 'CHANGELOG.md'
+      - '.release-please-manifest.json'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'crates/**/Cargo.toml'
+      - 'crates/**/CHANGELOG.md'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
