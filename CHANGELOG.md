@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.1](https://github.com/ModifAmorphic/darktide-extractor/compare/v0.1.0...v0.1.1) (2026-06-14)
+
+
+### Bug Fixes
+
+* **ci:** repair Windows release upload and unpin first-release version ([e941f8e](https://github.com/ModifAmorphic/darktide-extractor/commit/e941f8ede7f76114377e7e006a846fb6ca1c9a4c))
+* **ci:** repair Windows release upload and unpin first-release version ([#11](https://github.com/ModifAmorphic/darktide-extractor/issues/11)) ([e941f8e](https://github.com/ModifAmorphic/darktide-extractor/commit/e941f8ede7f76114377e7e006a846fb6ca1c9a4c))
+
 ## [0.1.0](https://github.com/ModifAmorphic/darktide-extractor/compare/v0.1.0...v0.1.0) (2026-06-14)
 
 
