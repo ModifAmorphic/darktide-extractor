@@ -1,12 +1,12 @@
 name: Release
 
-# Cut a release only when release-please's manifest changes — i.e. a
-# release-please release PR was merged. The manifest is touched only by
-# release-please, only when a release is cut.
+# release-please in manifest mode: on each push it opens/maintains the release
+# PR; when that PR is merged, it cuts the tag + GitHub Release and the binary
+# build runs. There is intentionally no build/test job here -- pr.yml already
+# gates every merge, so main is trusted.
 on:
   push:
     branches: [main, release-please-refactor]
-    paths: ['.release-please-manifest.json']
 
 permissions:
   contents: write
@@ -28,7 +28,6 @@ jobs:
         with:
           config-file: .release-please-config.json
           target-branch: release-please-refactor
-          skip-github-pull-request: true
 
   build-release-binary:
     needs: release-please
