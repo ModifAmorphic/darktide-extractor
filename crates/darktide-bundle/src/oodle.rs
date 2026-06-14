@@ -6,20 +6,20 @@ use std::os::raw::c_int;
 /// Based on the working example from PLAN.md.
 #[allow(non_camel_case_types)]
 type OodleLZ_DecompressFn = unsafe extern "C" fn(
-    src: *const u8,           // compressed data
+    src: *const u8, // compressed data
     src_size: u64,
-    dst: *mut u8,             // output buffer (must be 0x80000)
-    dst_size: u64,            // 0x80000
-    fuzz_safe: c_int,         // 1
-    check_crc: c_int,         // 0
-    verbose: c_int,           // 3
-    dst_log2s: *mut u8,       // null
-    decoder_mem_size: u64,    // 0
-    decoder_mem: *mut c_void, // null
-    callback: *mut c_void,    // null
+    dst: *mut u8,                // output buffer (must be 0x80000)
+    dst_size: u64,               // 0x80000
+    fuzz_safe: c_int,            // 1
+    check_crc: c_int,            // 0
+    verbose: c_int,              // 3
+    dst_log2s: *mut u8,          // null
+    decoder_mem_size: u64,       // 0
+    decoder_mem: *mut c_void,    // null
+    callback: *mut c_void,       // null
     callback_user_data: *mut u8, // null
-    scratch: u64,             // scratch buffer size
-    demand_continue: c_int,   // 3
+    scratch: u64,                // scratch buffer size
+    demand_continue: c_int,      // 3
 ) -> u64;
 
 /// Loaded Oodle library handle.
@@ -56,16 +56,16 @@ impl Oodle {
                 src.len() as u64,
                 dst.as_mut_ptr(),
                 dst.len() as u64,
-                1,  // fuzz_safe
-                0,  // check_crc
-                3,  // verbose
+                1, // fuzz_safe
+                0, // check_crc
+                3, // verbose
                 std::ptr::null_mut(),
                 0,
                 std::ptr::null_mut(),
                 std::ptr::null_mut(),
                 std::ptr::null_mut(),
                 scratch.len() as u64,
-                3,  // demand_continue
+                3, // demand_continue
             )
         }
     }

@@ -2,7 +2,6 @@
 ///
 /// Scans decompressed bundle content for plaintext path strings, computes
 /// their hashes, and builds a hash → path mapping for file name resolution.
-
 use std::collections::HashMap;
 use std::fs;
 use std::io;
@@ -15,6 +14,12 @@ use crate::hash::murmur_hash64;
 /// string. At extraction time, name hashes are looked up to resolve file names.
 pub struct Dictionary {
     hash_to_path: HashMap<u64, String>,
+}
+
+impl Default for Dictionary {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl Dictionary {
@@ -54,7 +59,9 @@ impl Dictionary {
     /// Existing entries are preserved (first-write-wins for each hash).
     pub fn merge(&mut self, other: &Self) {
         for (hash, path) in &other.hash_to_path {
-            self.hash_to_path.entry(*hash).or_insert_with(|| path.clone());
+            self.hash_to_path
+                .entry(*hash)
+                .or_insert_with(|| path.clone());
         }
     }
 
@@ -65,7 +72,9 @@ impl Dictionary {
     pub fn add_path(&mut self, path: &str) {
         // Hash the full path
         let hash = murmur_hash64(path.as_bytes());
-        self.hash_to_path.entry(hash).or_insert_with(|| path.to_string());
+        self.hash_to_path
+            .entry(hash)
+            .or_insert_with(|| path.to_string());
 
         // Hash the stem (path without last extension, e.g. "foo.stream" → "foo")
         if let Some(dot_pos) = path.rfind('.') {
@@ -140,7 +149,7 @@ pub fn scan_strings(data: &[u8]) -> Vec<String> {
         }
 
         let len = i - start;
-        if len < 5 || len > 1024 {
+        if !(5..=1024).contains(&len) {
             continue;
         }
 
@@ -195,12 +204,7 @@ fn is_path_like(s: &str) -> bool {
 /// Check if a string contains only valid path characters.
 fn is_valid_path_string(s: &str) -> bool {
     s.chars().all(|c| {
-        c.is_ascii_alphanumeric()
-            || c == '/'
-            || c == '\\'
-            || c == '_'
-            || c == '-'
-            || c == '.'
+        c.is_ascii_alphanumeric() || c == '/' || c == '\\' || c == '_' || c == '-' || c == '.'
     })
 }
 

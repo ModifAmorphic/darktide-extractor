@@ -481,7 +481,10 @@ mod tests {
         // On Windows, Component::Prefix would catch this.
         let result = safe_join(output, "C:\\Windows\\evil");
         #[cfg(windows)]
-        assert_eq!(result, None, "Windows should reject absolute paths with prefixes");
+        assert_eq!(
+            result, None,
+            "Windows should reject absolute paths with prefixes"
+        );
         #[cfg(unix)]
         assert!(result.is_some(), "Unix treats this as a relative path");
     }

@@ -119,8 +119,8 @@ pub fn extract_chunkname(data: &[u8]) -> Option<String> {
     // Source name should be valid UTF-8
     let name = std::str::from_utf8(name_bytes).ok()?;
 
-    if name.starts_with('@') {
-        Some(name[1..].to_string())
+    if let Some(stripped) = name.strip_prefix('@') {
+        Some(stripped.to_string())
     } else {
         Some(name.to_string())
     }

@@ -1,6 +1,5 @@
 /// MurmurHash64A implementation matching Darktide bundle format.
 /// Based on limn's reference implementation.
-
 /// Compute MurmurHash64A of the given data (seed=0).
 pub fn murmur_hash64(data: &[u8]) -> u64 {
     murmur_hash64a(data, 0)
@@ -17,8 +16,7 @@ pub fn murmur_hash64a(mut key: &[u8], seed: u64) -> u64 {
         let (chunk, rest) = key.split_at(8);
         key = rest;
         let mut k = u64::from_le_bytes([
-            chunk[0], chunk[1], chunk[2], chunk[3],
-            chunk[4], chunk[5], chunk[6], chunk[7],
+            chunk[0], chunk[1], chunk[2], chunk[3], chunk[4], chunk[5], chunk[6], chunk[7],
         ]);
         k = k.wrapping_mul(MAGIC);
         k ^= k >> ROLL;
@@ -71,23 +69,69 @@ pub const KNOWN_EXTENSIONS: &[(&str, u64)] = &[
 /// Compute known extension hashes at runtime for reference.
 pub fn compute_known_extensions() -> Vec<(&'static str, u64)> {
     let extensions = [
-        "animation", "animation_curves", "bik", "bk2", "blend_set", "bones",
-        "chroma", "common_package", "config", "data", "entity", "flow",
-        "font", "ies", "ini", "ivf", "keys", "level", "lua", "material",
-        "mod", "mouse_cursor", "navdata", "network_config", "oodle_net",
-        "package", "particles", "physics_properties", "render_config",
-        "rt_pipeline", "scene", "shader", "shader_library",
-        "shader_library_group", "shading_environment", "shading_environment_mapping",
-        "slug", "slug_album", "state_machine", "strings", "texture",
-        "theme", "tome", "unit", "vector_field", "wwise_bank", "wwise_dep",
-        "wwise_event", "wwise_metadata", "wwise_stream",
+        "animation",
+        "animation_curves",
+        "bik",
+        "bk2",
+        "blend_set",
+        "bones",
+        "chroma",
+        "common_package",
+        "config",
+        "data",
+        "entity",
+        "flow",
+        "font",
+        "ies",
+        "ini",
+        "ivf",
+        "keys",
+        "level",
+        "lua",
+        "material",
+        "mod",
+        "mouse_cursor",
+        "navdata",
+        "network_config",
+        "oodle_net",
+        "package",
+        "particles",
+        "physics_properties",
+        "render_config",
+        "rt_pipeline",
+        "scene",
+        "shader",
+        "shader_library",
+        "shader_library_group",
+        "shading_environment",
+        "shading_environment_mapping",
+        "slug",
+        "slug_album",
+        "state_machine",
+        "strings",
+        "texture",
+        "theme",
+        "tome",
+        "unit",
+        "vector_field",
+        "wwise_bank",
+        "wwise_dep",
+        "wwise_event",
+        "wwise_metadata",
+        "wwise_stream",
     ];
-    extensions.iter().map(|&ext| (ext, murmur_hash64(ext.as_bytes()))).collect()
+    extensions
+        .iter()
+        .map(|&ext| (ext, murmur_hash64(ext.as_bytes())))
+        .collect()
 }
 
 /// Lookup extension string by hash.
 pub fn lookup_extension(hash: u64) -> Option<&'static str> {
-    compute_known_extensions().into_iter().find(|&(_, h)| h == hash).map(|(ext, _)| ext)
+    compute_known_extensions()
+        .into_iter()
+        .find(|&(_, h)| h == hash)
+        .map(|(ext, _)| ext)
 }
 
 #[cfg(test)]
