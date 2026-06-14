@@ -3,11 +3,6 @@
   "include-component-in-tag": false,
   "prerelease": true,
   "packages": {
-    "crates/darktide-extractor-cli": {
-      "extra-files": [
-        "../darktide-bundle/Cargo.toml",
-        "../darktide-ffi/Cargo.toml"
-      ]
-    }
+    ".": {}
   }
 }

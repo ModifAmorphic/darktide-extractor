@@ -257,13 +257,14 @@ Artifacts:
 
 ## Project structure
 
+- Root crate (`darktide-extractor-cli`) — CLI binary `dtex` (`list`, `extract`, `dump-hashes`, `scan`, `coverage`); also the Cargo workspace root.
 - `crates/darktide-bundle` — core library (bundle parsing, Oodle decompression, MurmurHash64A, Lua normalization, dictionary).
-- `crates/darktide-extractor-cli` — CLI binary `dtex` (`list`, `extract`, `dump-hashes`, `scan`, `coverage`).
 - `crates/darktide-ffi` — C ABI wrapper (`cdylib` + `staticlib`).
 - `docs/` — technical specifications.
 
-Dependency chain: `darktide-extractor-cli` and `darktide-ffi` both depend on
-`darktide-bundle`, which has no internal crate dependencies.
+The root CLI crate and `darktide-ffi` both depend on `darktide-bundle`, which has
+no internal crate dependencies. All workspace crates share a single version that
+is bumped together on each release.
 
 ## Documentation
 
