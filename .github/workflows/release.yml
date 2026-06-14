@@ -1,0 +1,97 @@
+name: CI + Release
+
+on:
+  push:
+    branches: [main]
+  # TEMPORARY: for branch testing; remove before merge
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# release-please needs PR + contents write to create release PRs and tags
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  # CI: ensure main stays green after every merge
+  ci:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build workspace
+        run: cargo build --workspace --all-targets --release
+
+      - name: Run tests
+        run: cargo test --workspace --release
+
+  # release-please: manages version bumps via a release PR.
+  # On a regular push to main it creates/updates a "release PR" with
+  # Cargo.toml version bumps and a CHANGELOG. When that PR is merged,
+  # release-please creates the git tag and GitHub Release automatically.
+  # No bot commits on main from regular pushes -- version bumps go through
+  # a reviewable PR. Releases are marked as pre-release (see config JSON).
+  release-please:
+    needs: ci
+    runs-on: ubuntu-latest
+    if: github.repository == 'ModifAmorphic/darktide-extractor'
+
+    steps:
+      - id: release
+        uses: googleapis/release-please-action@v5
+        with:
+          config-file: .release-please-config.json
+
+    outputs:
+      # 'true' only when the release PR was merged and a release was created
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
+
+  # Build and attach binaries only when a release was actually created.
+  # Runs on both Linux and Windows to produce platform-specific binaries.
+  # Uses gh CLI to upload -- no third-party action needed.
+  build-release-binary:
+    needs: release-please
+    if: needs.release-please.outputs.release_created == 'true'
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            asset_name: dtex-linux-x64.tar.gz
+            archive_cmd: tar czf dtex-linux-x64.tar.gz target/release/dtex
+          - os: windows-latest
+            asset_name: dtex-windows-x64.zip
+            archive_cmd: 7z a dtex-windows-x64.zip ./target/release/dtex.exe
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build release binary
+        run: cargo build --release --bin dtex
+
+      - name: Package binary
+        run: ${{ matrix.archive_cmd }}
+
+      - name: Upload binary to release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload "${{ needs.release-please.outputs.tag_name }}" \
+            "${{ matrix.asset_name }}" --clobber
