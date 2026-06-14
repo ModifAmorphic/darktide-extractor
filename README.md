@@ -66,6 +66,7 @@ dtex coverage -d dictionary.txt -i <bundle_file> [-i <bundle_file> ...]
 | `--raw` | Extract raw data without file name resolution |
 | `--dictionary <path>` | Path to dictionary file for name resolution |
 | `--lua-chunknames` | Name Lua files using their chunkname from bytecode debug info |
+| | Lua files are automatically normalized to standard LuaJIT bytecode (no flag required) |
 
 #### Examples
 
@@ -120,23 +121,16 @@ This section documents the full pipeline for extracting Darktide bundle contents
 
 Lua files are a special case: they do not require a dictionary. The original file paths are embedded in the bytecode debug info (the chunkname field), so `--lua-chunknames` recovers them directly.
 
-**Step 1: Extract Lua files with chunkname-based naming:**
+**Step 1: Extract Lua files with chunkname-based naming (dtex now outputs standard LuaJIT bytecode directly — no patching needed):**
 ```sh
 dtex extract -i <bundle_dir> -o <output_dir> --lua-chunknames lua
 ```
 
 The `--lua-chunknames` flag reads the source name from each Lua bytecode file's debug info and uses it for the output path. Files are organized into subdirectories matching their in-game paths (e.g. `scripts/`, `dialogues/`, `content/`).
 
-**Step 2: Patch bytecode headers for standard LuaJIT compatibility:**
-
-Extracted Lua files have a custom Darktide header and modified magic bytes (see [Lua Bytecode Notes](#lua-bytecode-notes) below). Before decompiling, patch each file:
-- Replace magic bytes `1b 46 53` ("FS") at offset `0x18` with `1b 4c 4a` ("LJ")
-- Replace version byte `0x82` at offset `0x1C` with `0x02`
-- Strip the 24-byte custom header, keeping only the standard LuaJIT bytecode portion
-
-**Step 3: Decompile with luajit-decompiler-v2:**
+**Step 2: Decompile with luajit-decompiler-v2:**
 ```sh
-luajit-decompiler-v2 <patched_dir> -o <final_output> --organized -s -f
+luajit-decompiler-v2 <output_dir> -o <final_output> --organized -s -f
 ```
 
 The `--organized` flag preserves the directory structure from the chunknames.
@@ -163,6 +157,8 @@ Output directory breakdown:
 | `core/` | 6 |
 
 ### Lua Bytecode Notes
+
+**Note:** `dtex extract` now automatically normalizes Lua files to standard LuaJIT bytecode, so manual patching is no longer required. The format documentation below is preserved for reference.
 
 Darktide wraps standard LuaJIT bytecode in a custom header. This is present in every `.lua` file extracted from bundles and must be handled before standard LuaJIT tools can process the files.
 

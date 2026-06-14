@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 
 use darktide_bundle::hash::{lookup_extension, murmur_hash64};
 use darktide_bundle::lua::extract_chunkname;
-use darktide_bundle::{scan_strings, Bundle, Dictionary, Oodle};
+use darktide_bundle::{normalize_luajit, scan_strings, Bundle, Dictionary, Oodle};
 
 #[cfg(target_os = "windows")]
 const DEFAULT_OODLE_LIB: &str = "oo2core_9_win64.dll";
@@ -213,6 +213,14 @@ fn cmd_extract(
 
         let ext_name = lookup_extension(file.ext).unwrap_or("unknown");
 
+        // Lua files are unconditionally normalized to standard LuaJIT bytecode
+        // (strips the 24-byte Fatshark prefix, restores `LJ` magic and `0x02` version).
+        let bytes = if ext_name == "lua" {
+            normalize_luajit(&file.data)
+        } else {
+            std::borrow::Cow::Borrowed(file.data.as_slice())
+        };
+
         // Try lua chunkname naming when flag is set and file is lua
         if lua_chunknames && ext_name == "lua" {
             if let Some(chunkname) = extract_chunkname(&file.data) {
@@ -220,21 +228,21 @@ fn cmd_extract(
                 if let Some(parent) = out_path.parent() {
                     fs::create_dir_all(parent)?;
                 }
-                fs::write(&out_path, &file.data)?;
+                fs::write(&out_path, &bytes)?;
             } else {
                 // No chunkname found — place in unnamed/ with hash-based name
                 let dir = output.join("unnamed");
                 fs::create_dir_all(&dir)?;
                 let filename = format!("{:016x}", file.name);
                 let out_path = dir.join(&filename);
-                fs::write(&out_path, &file.data)?;
+                fs::write(&out_path, &bytes)?;
                 unnamed_lua += 1;
             }
         } else if raw {
             // Raw mode: dump to <name_hash>.<ext_hash>
             let filename = format!("{:016x}.{:016x}", file.name, file.ext);
             let out_path = output.join(&filename);
-            fs::write(&out_path, &file.data)?;
+            fs::write(&out_path, &bytes)?;
         } else if let Some(dict) = dictionary {
             // Dictionary mode: resolve name hash to path
             if let Some(resolved_path) = dict.resolve(file.name) {
@@ -243,14 +251,14 @@ fn cmd_extract(
                 if let Some(parent) = out_path.parent() {
                     fs::create_dir_all(parent)?;
                 }
-                fs::write(&out_path, &file.data)?;
+                fs::write(&out_path, &bytes)?;
             } else {
                 // Fall back to hash-based naming
                 let dir = output.join(ext_name);
                 fs::create_dir_all(&dir)?;
                 let filename = format!("{:016x}", file.name);
                 let out_path = dir.join(&filename);
-                fs::write(&out_path, &file.data)?;
+                fs::write(&out_path, &bytes)?;
                 unresolved += 1;
             }
         } else {
@@ -259,10 +267,10 @@ fn cmd_extract(
             fs::create_dir_all(&dir)?;
             let filename = format!("{:016x}", file.name);
             let out_path = dir.join(&filename);
-            fs::write(&out_path, &file.data)?;
+            fs::write(&out_path, &bytes)?;
         }
 
-        total_bytes += file.data.len() as u64;
+        total_bytes += bytes.len() as u64;
         count += 1;
     }
 
