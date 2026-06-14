@@ -1,4 +1,19 @@
+[package]
+name = "darktide-extractor-cli"
+version = "0.1.0"
+edition = "2021"
+description = "CLI tool for extracting Darktide resource bundles"
+
+[[bin]]
+name = "dtex"
+path = "src/main.rs"
+
+[dependencies]
+darktide-bundle = { path = "crates/darktide-bundle" }
+clap = { version = "4", features = ["derive"] }
+anyhow = "1"
+
 [workspace]
-members = ["crates/*"]
+members = ["crates/darktide-bundle", "crates/darktide-ffi"]
 exclude = ["oodle_test2"]
 resolver = "2"
