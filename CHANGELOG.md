@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1](https://github.com/ModifAmorphic/darktide-extractor/compare/v0.2.0...v0.2.1) (2026-06-15)
+
+
+### Bug Fixes
+
+* **ci:** use --workspace so release builds darktide-ffi artifacts ([#26](https://github.com/ModifAmorphic/darktide-extractor/issues/26)) ([8c23aa6](https://github.com/ModifAmorphic/darktide-extractor/commit/8c23aa6c85fbd84a981201d6e4a4a4e9c740b77c))
+
 ## [0.2.0](https://github.com/ModifAmorphic/darktide-extractor/compare/v0.1.2...v0.2.0) (2026-06-15)
 
 
