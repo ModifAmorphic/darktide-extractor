@@ -50,8 +50,12 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
 
       - name: Build release artifacts
-        # Whole workspace: produces dtex binary AND the darktide-ffi cdylib + staticlib.
-        run: cargo build --release
+        # --workspace is required: this repo has a root [package] (darktide-extractor-cli)
+        # plus a [workspace] declaration, so plain `cargo build` only builds the root
+        # package and its dependencies (darktide-bundle). darktide-ffi is a sibling
+        # workspace member that nothing depends on, so it would be skipped without
+        # the explicit --workspace flag — producing dtex but no FFI artifacts.
+        run: cargo build --release --workspace
 
       - name: Package release
         # Includes the dtex CLI binary, the FFI shared lib + static lib + import lib
