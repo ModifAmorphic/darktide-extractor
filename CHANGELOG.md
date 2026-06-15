@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.0](https://github.com/ModifAmorphic/darktide-extractor/compare/v0.1.2...v0.2.0) (2026-06-15)
+
+
+### Features
+
+* cover Oodle decompress path, ship FFI artifacts, and misc cleanup ([#24](https://github.com/ModifAmorphic/darktide-extractor/issues/24)) ([7716e3f](https://github.com/ModifAmorphic/darktide-extractor/commit/7716e3f2d83dc308931380945b949aa051e9a58d))
+
 ## [0.1.2](https://github.com/ModifAmorphic/darktide-extractor/compare/v0.1.1...v0.1.2) (2026-06-14)
 
 
