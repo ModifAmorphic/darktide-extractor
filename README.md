@@ -226,6 +226,8 @@ The `darktide-ffi` crate compiles to a shared library (`cdylib`) and static libr
 (`staticlib`) with a C-compatible API. It wraps `darktide-bundle` using opaque handles for
 use from other languages.
 
+A ready-to-use C header is included at [`crates/darktide-ffi/darktide.h`](crates/darktide-ffi/darktide.h); C and C++ consumers can `#include` it directly. The function list below is authoritative if you need to hand-transcribe signatures.
+
 Exported functions:
 
 - `darktide_oodle_load(path)` / `darktide_oodle_free(oodle)`

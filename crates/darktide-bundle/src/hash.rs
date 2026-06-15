@@ -26,32 +26,13 @@ pub fn murmur_hash64a(mut key: &[u8], seed: u64) -> u64 {
     }
 
     if !key.is_empty() {
-        let mut xor = [0u8; 8];
-        let rem = key.len();
-        if rem >= 4 {
-            xor[0] = key[0];
-            xor[1] = key[1];
-            xor[2] = key[2];
-            xor[3] = key[3];
-            if rem >= 6 {
-                xor[4] = key[4];
-                xor[5] = key[5];
-                if rem == 7 {
-                    xor[6] = key[6];
-                }
-            } else if rem == 5 {
-                xor[4] = key[4];
-            }
-        } else if rem >= 2 {
-            xor[0] = key[0];
-            xor[1] = key[1];
-            if rem == 3 {
-                xor[2] = key[2];
-            }
-        } else if rem == 1 {
-            xor[0] = key[0];
-        }
-        hash ^= u64::from_le_bytes(xor);
+        // Tail has 1-7 bytes. Zero-pad to 8 and read as a little-endian u64:
+        // the high padding bytes are zero, so they do not affect the value.
+        // This is byte-equivalent to the explicit per-length branching above
+        // and is validated by the `mmh64a` test vectors covering lengths 0..=8.
+        let mut tail = [0u8; 8];
+        tail[..key.len()].copy_from_slice(key);
+        hash ^= u64::from_le_bytes(tail);
         hash = hash.wrapping_mul(MAGIC);
     }
 
