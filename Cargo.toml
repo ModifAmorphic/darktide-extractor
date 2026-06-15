@@ -15,5 +15,4 @@ anyhow = "1"
 
 [workspace]
 members = ["crates/darktide-bundle", "crates/darktide-ffi"]
-exclude = ["oodle_test2"]
 resolver = "2"
