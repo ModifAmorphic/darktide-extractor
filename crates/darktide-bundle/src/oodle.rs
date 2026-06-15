@@ -25,10 +25,27 @@ type OodleLZ_DecompressFn = unsafe extern "C" fn(
     demand_continue: c_int,      // 3
 ) -> usize;
 
+/// OodleLZ_Compress FFI signature (public, documented).
+/// Constants used: OodleLZ_Compressor_Kraken = 8, OodleLZ_CompressionLevel_Normal = 4.
+/// Sizes use `isize` to match SINTa (ptrdiff_t) in the official header.
+#[allow(non_camel_case_types)]
+type OodleLZ_CompressFn = unsafe extern "C" fn(
+    compressor: c_int, // 8 = Kraken
+    src: *const u8,
+    src_size: isize,
+    dst: *mut u8,
+    level: c_int,            // 4 = Normal
+    opts: *mut c_void,       // null
+    dictionary_base: isize,  // 0
+    dictionary: *mut c_void, // null
+    dictionary_size: isize,  // 0
+) -> isize;
+
 /// Loaded Oodle library handle.
 pub struct Oodle {
     _lib: Library,
     decompress: libloading::Symbol<'static, OodleLZ_DecompressFn>,
+    compress: libloading::Symbol<'static, OodleLZ_CompressFn>,
 }
 
 impl Oodle {
@@ -46,9 +63,19 @@ impl Oodle {
                 libloading::Symbol<'static, OodleLZ_DecompressFn>,
             >(decompress)
         };
+        let compress = unsafe { lib.get(b"OodleLZ_Compress") }.map_err(|e| {
+            Error::OodleLoad(format!("{path}: symbol OodleLZ_Compress not found: {e}"))
+        })?;
+        let compress = unsafe {
+            std::mem::transmute::<
+                libloading::Symbol<'_, OodleLZ_CompressFn>,
+                libloading::Symbol<'static, OodleLZ_CompressFn>,
+            >(compress)
+        };
         Ok(Oodle {
             _lib: lib,
             decompress,
+            compress,
         })
     }
 
@@ -72,6 +99,30 @@ impl Oodle {
                 scratch.len(),
                 3, // demand_continue
             )
+        }
+    }
+
+    /// Compress `src` into `dst` using Kraken at Normal level.
+    ///
+    /// `dst` must be sized generously — at least `src.len() + (src.len() / 2) + 1024` is a
+    /// safe upper bound for compressible input; for incompressible input the output may
+    /// exceed `src.len()` slightly. Returns the number of bytes written to `dst`, or 0 on
+    /// failure.
+    ///
+    /// This wraps `OodleLZ_Compress` with `compressor = Kraken (8)` and `level = Normal (4)`.
+    pub fn compress(&self, src: &[u8], dst: &mut [u8]) -> usize {
+        unsafe {
+            (self.compress)(
+                8, // Kraken
+                src.as_ptr(),
+                src.len() as isize,
+                dst.as_mut_ptr(),
+                4, // Normal
+                std::ptr::null_mut(),
+                0,
+                std::ptr::null_mut(),
+                0,
+            ) as usize
         }
     }
 }
