@@ -42,10 +42,10 @@ See [`docs/bundle-format.md`](docs/bundle-format.md) for the binary format detai
 `dtex` dynamically loads the Oodle shared library at runtime. Place the platform-appropriate
 file next to the `dtex` binary (or pass its path with `--oodle-lib`):
 
-- Linux: `liboo2corelinux64.so.9` (Oodle 2.9.14; vendored in this repo)
-- Windows: `oo2core_9_win64.dll` (Oodle 2.9.10; obtain separately)
+- Linux: `liboo2corelinux64.so.9` (Oodle 2.9.14)
+- Windows: `oo2core_9_win64.dll` (Oodle 2.9.10)
 
-See [`docs/oodle-library.md`](docs/oodle-library.md) for how to obtain the Windows DLL from
+See [`docs/oodle-library.md`](docs/oodle-library.md) for how to obtain the library from
 Epic's CDN.
 
 ### Option 1: Pre-built binary

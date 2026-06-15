@@ -51,6 +51,25 @@ jobs:
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Download Oodle library
+        shell: python
+        run: |
+          import gzip, os, urllib.request
+          # The Oodle libraries are proprietary Epic Games components (Unreal Engine
+          # dependency) and are NOT redistributed in this repo (see .gitignore and
+          # docs/oodle-library.md). Download on demand for test execution.
+          if os.name == "nt":
+              url = "https://cdn.unrealengine.com/dependencies/UnrealEngine-27563807/51bf6515dd35ac8361c9a324b6deb1736a61240c"
+              offset, count, out = 1240856, 637952, "oo2core_9_win64.dll"
+          else:
+              url = "https://cdn.unrealengine.com/dependencies/UnrealEngine-42566482/4f6c5fd233cb85f91497bd8c722fd7a89f1c657a"
+              offset, count, out = 1399275, 688096, "liboo2corelinux64.so.9"
+          with urllib.request.urlopen(url) as r:
+              data = gzip.decompress(r.read())
+          with open(out, "wb") as f:
+              f.write(data[offset:offset + count])
+          print(f"Wrote {count} bytes to {out}")
+
       - name: Build workspace
         run: cargo build --workspace --all-targets --release
 

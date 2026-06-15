@@ -4,8 +4,7 @@ Darktide bundles use Oodle (Kraken) compression. The Oodle shared library is a p
 Epic Games component required at runtime; it is not open source. `dtex` loads it dynamically
 via `libloading` (`dlopen` on Linux, `LoadLibrary` on Windows).
 
-The Linux library is vendored in the repository root. The Windows DLL is not redistributed;
-obtain it as described below.
+Neither library is redistributed in this repository (both are listed in `.gitignore`). CI workflows download them automatically before running tests; developers obtain them locally as described below.
 
 ## Supported platforms
 
