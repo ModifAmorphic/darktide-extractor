@@ -42,7 +42,7 @@ This file provides instructions for AI agents working in this repository.
 
 ## Oodle Library
 
-This project requires `liboo2corelinux64.so.9` (Oodle compression, proprietary). It is vendored in the repo root.
+This project requires `liboo2corelinux64.so.9` (Linux) or `oo2core_9_win64.dll` (Windows) for Oodle decompression at runtime. These are proprietary Epic Games components (Unreal Engine dependencies) and are NOT redistributed in this repository — both are listed in `.gitignore` and exist only on developer machines. CI workflows download them automatically before running tests; developers must obtain them locally using the process in [`docs/oodle-library.md`](docs/oodle-library.md).
 
 ### How it was obtained
 
