@@ -47,9 +47,11 @@ fn write_synthetic_bundle(path: &Path, entries: &[SyntheticEntry]) {
 
 /// Run dtex as a subprocess and capture stdout/stderr.
 fn run_dtex(args: &[&str]) -> (String, String, i32) {
-    let bin =
-        std::env::var("CARGO_BIN_EXE_DTEX").unwrap_or_else(|_| "target/debug/dtex".to_string());
-    let mut cmd = Command::new(&bin);
+    // Cargo exposes the built binary as CARGO_BIN_EXE_<name> with the bin name AS-IS
+    // (lowercase "dtex"), not uppercased. Use env! (compile-time) so cargo wires the
+    // binary as a test dependency and there's no brittle runtime fallback.
+    let bin = env!("CARGO_BIN_EXE_dtex");
+    let mut cmd = Command::new(bin);
     cmd.args(args);
 
     let output = cmd.output().expect("Failed to run dtex");
