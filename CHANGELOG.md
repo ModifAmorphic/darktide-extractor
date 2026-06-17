@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.0](https://github.com/ModifAmorphic/darktide-extractor/compare/v0.2.1...v0.3.0) (2026-06-17)
+
+
+### Features
+
+* add discovery, batch extraction, find/validate, and JSON output ([#28](https://github.com/ModifAmorphic/darktide-extractor/issues/28)) ([528ddbb](https://github.com/ModifAmorphic/darktide-extractor/commit/528ddbb435234e65670ea27f70e744e9584f1a5c))
+
 ## [0.2.1](https://github.com/ModifAmorphic/darktide-extractor/compare/v0.2.0...v0.2.1) (2026-06-15)
 
 
