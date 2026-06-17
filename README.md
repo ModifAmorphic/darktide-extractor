@@ -31,6 +31,11 @@ How files are **named** on extraction depends on the type:
 - **Plaintext Lua source** (a small number of entries) is not compiled bytecode; it is passed
   through unchanged and standard LuaJIT tooling skips it.
 - **Decompression requires the proprietary Oodle library** at runtime (see Installation).
+- **Bundle classification is based on magic bytes**: Only the first 8 bytes are checked,
+  so non-bundle files that coincidentally match the magic will be opened and fail during parsing.
+- **Directory extraction only processes top-level files**: Subdirectories are not recursed.
+  This matches the Darktide bundle directory layout where all bundles are flat and non-bundle
+  files are either `.stream` files or in `data/` subdirectories.
 
 See [`docs/bundle-format.md`](docs/bundle-format.md) for the binary format details and
 [`docs/luajit-bytecode-format.md`](docs/luajit-bytecode-format.md) for Lua-specific handling.
@@ -39,8 +44,16 @@ See [`docs/bundle-format.md`](docs/bundle-format.md) for the binary format detai
 
 ### Prerequisites: the Oodle library
 
-`dtex` dynamically loads the Oodle shared library at runtime. Place the platform-appropriate
-file next to the `dtex` binary (or pass its path with `--oodle-lib`):
+`dtex` dynamically loads the Oodle shared library at runtime. The library is searched in the following order:
+
+1. `--oodle-lib` command-line flag
+2. `DTEX_OODLE_LIB` environment variable
+3. Windows only: `<game-dir>/binaries/oo2core_9_win64.dll` (if `--game-dir` is provided or auto-discovered)
+4. Next to the `dtex` binary (exe-dir)
+5. Current working directory
+6. System library search path
+
+Place the platform-appropriate file in one of these locations (or use `--oodle-lib`):
 
 - Linux: `liboo2corelinux64.so.9` (Oodle 2.9.14)
 - Windows: `oo2core_9_win64.dll` (Oodle 2.9.10)
@@ -74,6 +87,9 @@ Copy-Item dtex.exe, oo2core_9_win64.dll $dest
 dtex --version
 ```
 
+If the Oodle library ships with the Darktide game in your Steam installation, you can use
+`--game-dir <path>` to auto-discover the DLL on Windows (e.g., `--game-dir "C:\Games\Darktide"`).
+
 ### Option 2: Build from source
 
 Requires the [Rust toolchain](https://www.rust-lang.org/tools/install).
@@ -96,24 +112,97 @@ dtex list -i <bundle_file> [extension]
 ### Extract files
 
 ```sh
-# All files
+# All files from a single bundle
 dtex extract -i <bundle_file> -o <output_dir>
 
 # Filter by extension
 dtex extract -i <bundle_file> -o <output_dir> lua
+
+# Extract all bundles from a directory (e.g., the game's bundle/ folder)
+dtex extract -i <bundle_dir> -o <output_dir>
+
+# Lua files named by their chunkname (original source paths)
+dtex extract -i <bundle_dir> -o <output_dir> --lua-chunknames lua
 
 # Raw mode: <name_hash>.<ext_hash>, no resolution
 dtex extract -i <bundle_file> -o <output_dir> --raw
 
 # Dictionary-based name resolution
 dtex extract -i <bundle_file> -o <output_dir> --dictionary dictionary.txt
-
-# Lua files named by their chunkname (original source paths)
-dtex extract -i <bundle_file> -o <output_dir> --lua-chunknames lua
 ```
 
-Lua files are written as standard LuaJIT bytecode (the Fatshark wrapper is stripped and the
-magic/version bytes restored automatically).
+#### Directory extraction
+
+When extracting from a directory (e.g., the game's `bundle/` folder), `dtex` processes
+all top-level bundle files. Non-bundle files (like `.stream` files and `data/` subdirectories)
+are skipped automatically.
+
+```sh
+dtex extract -i /path/to/darktide/bundle -o extracted_files
+```
+
+#### Collision handling
+
+When multiple bundles contain files that would write to the same output path, you can control
+the behavior with `--on-collision`:
+
+- `overwrite` (default): Write the file from each bundle, recording collisions in the summary.
+- `skip`: Keep the first occurrence, skip subsequent writes.
+- `error`: Abort when a collision is detected.
+
+Collisions are reported to stderr when they occur.
+
+```sh
+dtex extract -i <bundle_dir> -o output --on-collision skip
+```
+
+#### Error handling
+
+By default, errors during directory extraction are recorded and processing continues. Use
+`--strict` to abort on the first error.
+
+```sh
+dtex extract -i <bundle_dir> -o output --strict
+```
+
+#### Manifest
+
+To track the provenance of all extracted files, use `--manifest` to write a TSV file:
+
+```sh
+dtex extract -i <bundle_dir> -o output --manifest manifest.tsv
+```
+
+The manifest contains: `output_path<TAB>source_bundle<TAB>name_hash<TAB>ext` for every extracted file.
+
+#### Progress and output
+
+- `--quiet`: Suppress progress and summary output (errors still print).
+- `--json`: Output machine-readable JSON to stdout (human-readable summary still goes to stderr unless `--quiet`).
+- `--verbose`: Enable verbose output (including Oodle debug logging).
+
+### Find files in bundles
+
+```sh
+# Find all files with a given extension
+dtex find lua -i <bundle_dir>
+
+# Without an extension, print a per-extension count summary
+dtex find -i <bundle_dir>
+
+# Output as JSON
+dtex find lua -i <bundle_dir> --json
+```
+
+### Validate bundle files
+
+```sh
+# Check classification of files in a directory
+dtex validate -i <bundle_dir>
+
+# Output as JSON
+dtex validate -i <bundle_dir> --json
+```
 
 ### Other commands
 
@@ -129,11 +218,18 @@ dtex scan -i <bundle_file> -o dictionary.txt --merge existing_dictionary.txt
 dtex coverage -d dictionary.txt -i <bundle_file> [-i <bundle_file> ...]
 ```
 
+Lua files are written as standard LuaJIT bytecode (the Fatshark wrapper is stripped and the
+magic/version bytes restored automatically).
+
 ### Global options
 
 | Option | Description | Default |
 |---|---|---|
 | `--oodle-lib <path>` | Path to the Oodle shared library | Platform default (see Installation) |
+| `--game-dir <path>` | Darktide game directory (for Steam auto-discovery and Windows Oodle DLL) | Auto-discovered or none |
+| `--verbose` | Enable verbose output (including Oodle debug output) | false |
+| `--quiet` | Suppress stderr progress/summary (errors still print) | false |
+| `--json` | Output machine-readable JSON for data commands | false |
 
 ### Extract options
 
@@ -142,6 +238,9 @@ dtex coverage -d dictionary.txt -i <bundle_file> [-i <bundle_file> ...]
 | `--raw` | Write files as `<name_hash>.<ext_hash>` without name resolution |
 | `--dictionary <path>` | Resolve `name_hash` via a dictionary file |
 | `--lua-chunknames` | Name Lua files using the chunkname from bytecode debug info |
+| `--on-collision <mode>` | How to handle output path collisions: `overwrite`, `skip`, or `error` (default: `overwrite`) |
+| `--strict` | Abort on first error (instead of continuing) |
+| `--manifest <path>` | Write manifest TSV of extracted files |
 
 ## Lua extraction pipeline
 
@@ -259,7 +358,7 @@ Artifacts:
 
 ## Project structure
 
-- Root crate (`darktide-extractor-cli`) — CLI binary `dtex` (`list`, `extract`, `dump-hashes`, `scan`, `coverage`); also the Cargo workspace root.
+- Root crate (`darktide-extractor-cli`) — CLI binary `dtex` (`list`, `extract`, `dump-hashes`, `scan`, `coverage`, `find`, `validate`); also the Cargo workspace root.
 - `crates/darktide-bundle` — core library (bundle parsing, Oodle decompression, MurmurHash64A, Lua normalization, dictionary).
 - `crates/darktide-ffi` — C ABI wrapper (`cdylib` + `staticlib`).
 - `docs/` — technical specifications.
