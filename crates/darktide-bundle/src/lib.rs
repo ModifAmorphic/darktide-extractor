@@ -4,9 +4,10 @@ pub mod error;
 pub mod hash;
 pub mod lua;
 pub mod oodle;
+pub mod testutil;
 pub mod types;
 
-pub use bundle::Bundle;
+pub use bundle::{Bundle, FileClass};
 pub use dictionary::{scan_strings, Dictionary};
 pub use error::{Error, Result};
 pub use hash::murmur_hash64;

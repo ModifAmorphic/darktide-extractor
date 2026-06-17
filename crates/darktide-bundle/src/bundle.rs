@@ -5,6 +5,17 @@ use crate::error::{Error, Result};
 use crate::oodle::Oodle;
 use crate::types::{FileEntry, FileVariant, IndexEntry};
 
+/// Classification result for a file.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FileClass {
+    /// File is a valid Darktide bundle.
+    Bundle,
+    /// File exists but is not a bundle.
+    NotBundle,
+    /// File could not be read (IO error).
+    Unreadable,
+}
+
 /// Darktide resource bundle.
 #[derive(Debug)]
 pub struct Bundle {
@@ -16,6 +27,33 @@ pub struct Bundle {
 }
 
 impl Bundle {
+    /// Classify a file by checking its magic bytes.
+    /// Reads only the first 8 bytes, so it's fast and doesn't parse the whole bundle.
+    pub fn classify(path: &str) -> FileClass {
+        let mut file = match File::open(path) {
+            Ok(f) => f,
+            Err(_) => return FileClass::Unreadable,
+        };
+
+        let mut header = [0u8; 8];
+        match file.read_exact(&mut header) {
+            Ok(_) => {}
+            Err(_) => return FileClass::Unreadable,
+        }
+
+        let magic = u64::from_le_bytes(header);
+        if magic == 0x0000_0003_f000_0008 || magic == 0x0000_0003_f000_0007 {
+            FileClass::Bundle
+        } else {
+            FileClass::NotBundle
+        }
+    }
+
+    /// Check if a file is a valid bundle.
+    pub fn is_bundle(path: &str) -> bool {
+        matches!(Self::classify(path), FileClass::Bundle)
+    }
+
     /// Open a bundle file from disk.
     pub fn open(path: &str) -> Result<Self> {
         let mut file = File::open(path)?;

@@ -6,6 +6,21 @@ via `libloading` (`dlopen` on Linux, `LoadLibrary` on Windows).
 
 Neither library is redistributed in this repository (both are listed in `.gitignore`). CI workflows download them automatically before running tests; developers obtain them locally as described below.
 
+## Auto-discovery
+
+`dtex` searches for the Oodle library in the following order:
+
+1. `--oodle-lib <path>` command-line flag
+2. `DTEX_OODLE_LIB` environment variable
+3. Windows only: `<game-dir>/binaries/oo2core_9_win64.dll` (if `--game-dir` is provided or auto-discovered)
+4. Next to the `dtex` binary (exe-dir)
+5. Current working directory
+6. System library search path (bare library name)
+
+If the library cannot be found, `dtex` prints an error with platform-specific hints:
+- On Linux, the error message references this document.
+- On Windows, the error message mentions that the DLL ships with the game in `<game-dir>/binaries/` and suggests using `--game-dir` if Steam auto-discovery fails.
+
 ## Supported platforms
 
 | Platform | Library file | Oodle version | Size |
