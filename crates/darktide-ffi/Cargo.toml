@@ -1,6 +1,6 @@
 [package]
 name = "darktide-ffi"
-version = "0.2.1"
+version = "0.3.0"
 edition = "2021"
 description = "C ABI exports for Darktide bundle extraction"
 
